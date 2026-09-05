@@ -1,0 +1,6 @@
+venv/
+.env
+models/recovery_ledger.db
+models/recovery_ledger.db-*
+__pycache__/
+data/creditcard.csv

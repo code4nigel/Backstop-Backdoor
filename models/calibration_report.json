@@ -1,0 +1,28 @@
+{
+  "accuracy": 0.4828,
+  "log_loss": 1.3897,
+  "n_train": 348,
+  "n_test": 116,
+  "calibration_bins": {
+    "mean_predicted_confidence": [
+      0.311,
+      0.335,
+      0.364,
+      0.398,
+      0.412,
+      0.428,
+      0.454,
+      0.505
+    ],
+    "actual_fraction_correct": [
+      0.4,
+      0.5,
+      0.333,
+      0.643,
+      0.571,
+      0.333,
+      0.714,
+      0.4
+    ]
+  }
+}
