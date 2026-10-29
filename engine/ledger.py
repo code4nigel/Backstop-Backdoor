@@ -88,13 +88,8 @@ class RecoveryLedger:
         now = time.time()
 
         if existing is not None:
-            if existing["state"] == "EXECUTED":
+            if existing["state"] in ("EXECUTED", "SKIPPED"):
                 self._log(key, existing["state"], "SKIPPED", "already executed -- idempotent no-op")
-                with self._conn() as conn:
-                    conn.execute(
-                        "UPDATE actions SET state='SKIPPED', updated_at=? WHERE idempotency_key=?",
-                        (now, key),
-                    )
                 return key, False, "EXECUTED"
             return key, True, existing["state"]
 
