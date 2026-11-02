@@ -1,0 +1,104 @@
+Audit: Backstop vs the problem statement
+Requirement	Status	What the code actually does
+Detect revenue at risk	Partial	Only failed card/mandate payments (the failed flag in the synthetic CSV). No checkout abandonment, subscriptions or receivables.
+Choose the right intervention	Works	EV ranking over 4 interventions. The probability table is assumed, and it acts on the top-1 diagnosis only.
+Bounded execution	Partial	MAX_ATTEMPTS and opt-out exist, but the batch always passes attempts=0, opt_out=False, so they never fire. No cooldown. Each invoice gets one attempt.
+Measured money recovered	Broken	See below.
+Compliant escalation	Weak	Escalation is just another action. No consent data, contact windows or human-queue cap.
+Explicit stopping rules	Partial	Stop reasons aren’t recorded or reported anywhere.
+Complete audit trail	Partial	Ledger state transitions exist, but the ranked EVs, the rule that fired and the outcome rationale aren’t queryable.
+End-to-end demo	Mostly works	“Try a transaction” stops at ranking and message and never executes through the ledger.
+The measurement problem is the biggest one, and I reproduced it. The batch writes into the same ledger the crash demo uses, and skipped actions count as unrecovered. Same data, three results:
+
+Clean ledger: 548%
+After 15 crash-demo transactions: 489%
+Batch run twice: −100%
+That explains the +444% on your dashboard. Also, recovery was scored against the diagnosed cause, so a wrong diagnosis never cost anything.   
+
+
+
+WHAT I WANT TO ADD: 
+Revenue Recovery Agent: Feature List
+1. Detect (revenue at risk)
+Ingest one batch of ~300-500 at-risk items across four leak types: failed payments, abandoned checkouts, failed subscription renewals/mandates, and overdue B2B invoices.
+Show a Revenue-at-Risk board with amount, leak type, days at risk, and recovery probability for each item.
+Detect payment degradation by watching success rate per bank, UPI app, card network and gateway route. Flag a drop (e.g. “HDFC cards down 14 pts in 2 hours”) before it shows up in monthly numbers.
+Separate a systemic failure (route or issuer problem) from an individual failure (customer issue).
+2. Diagnose (root cause)
+Classify each failure by its decline code into a cause bucket: insufficient funds, issuer/bank down, OTP/3DS failure, expired card, mandate limit exceeded, UPI timeout, fraud block, hard decline, or customer disputing the charge.
+For abandoned checkouts, tag the drop-off step: payment page, OTP, coupon, shipping cost, or no intent.
+For receivables, tag the reason: forgot, cash-flow delay, invoice dispute, PO mismatch, or wrong contact.
+Attach a confidence score and evidence to every diagnosis, and route low-confidence cases to a human.
+3. Decide (intervention engine)
+Map each cause to the cheapest effective action:
+Bank down: retry later or reroute through another gateway.
+Insufficient funds: retry after payday or salary-credit timing.
+Expired card: send a card-update link.
+UPI mandate failure: run a mandate retry sequence.
+Abandoned cart: send a reminder, then a small incentive.
+Overdue invoice: send a polite nudge, then a firm reminder, then a call, then escalation.
+Run a cost-aware decision that compares expected recovery against the cost of the action (SMS, WhatsApp, voice call, discount) and skips low-value cases.
+Choose the channel using customer history, preferred language and best contact time.
+Cap discounts and incentives with a margin guardrail, so the agent never gives away more than the cap.
+4. Execute (bounded workflows)
+Smart retry sequencer that times retries to the failure type and respects the retry limits of card networks and UPI.
+Mandate retry sequencer that respects pre-debit notification windows and per-mandate limits.
+Omnichannel outreach over WhatsApp, SMS, email and voice, with personalised, auditable message templates.
+Hinglish voice recovery agent:
+Simulated call transcripts that switch naturally between Hindi and English.
+Handles objections such as “salary aane do” (“let my salary come in”), “already paid” and “send me the link”.
+Sends a payment link by WhatsApp during the call.
+Detects intent: pay now, promise later, dispute, or hostile.
+Promise-to-pay tracker:
+Captures the promised date and amount.
+Sends reminders before the date.
+Marks the promise kept or broken.
+Re-routes on a broken promise, and gives repeat promise-breakers lower priority.
+Dispute handling: when a customer says “I already paid” or “invoice is wrong”, the agent freezes outreach and opens a reconciliation task instead of chasing.
+5. Stopping rules (hard and visible)
+Max touches per customer per week, and max per case in total.
+Stop on payment, dispute, opt-out/DND, bereavement or hardship flag, or a legal hold.
+No contact outside permitted hours (e.g. 8 AM-7 PM for collections calls).
+Stop when retry success probability drops below a threshold, or when the cost of recovery exceeds the amount at stake.
+Stop on a tone or sentiment trigger, such as anger or distress, and hand over to a human.
+Every stop shows the rule that fired on the case.
+6. Compliance and escalation ladder
+Consent and opt-out check before every outbound message or call.
+DND and template-registration checks for SMS and WhatsApp.
+Regulator-aligned contact windows and frequency caps (RBI recovery norms, TRAI rules, DPDP consent, as applicable).
+Collections-safe language checks that block threats, public shaming, third-party disclosure and misleading urgency.
+Escalation ladder: automated nudge, then a firmer reminder, then an agent voice call, then a human collector, then a manager/legal review. Each step requires evidence that the previous step happened.
+Human-approval queue for high-value cases, discounts above the cap, disputes and legal steps.
+7. Audit trail
+Immutable, timestamped log of each decision: input data, diagnosis, rule or policy applied, action taken, and outcome.
+A “Why did the agent do this?” panel per case with the full reasoning chain.
+Message and call transcripts stored with consent flags.
+Exportable audit report (CSV/PDF) for compliance review.
+Replay mode that steps through one case from detection to closure.
+8. Measured recovery (the proof)
+Holdout control group (e.g. 15-20% of cases receive no intervention) to measure incremental recovery, not just the cases that would have paid anyway.
+Headline result: “₹X recovered out of ₹Y at risk, with Z% lift over control, at a cost of ₹C.”
+Breakdown by leak type, cause, channel and intervention.
+Net recovery after discounts and outreach cost, plus ROI.
+Before/after comparison against a baseline “blast reminder to everyone” strategy.
+Time-to-recover, recovery rate by day, and a funnel from at-risk to contacted to promised to recovered.
+Confidence intervals or a basic significance note, so the lift isn’t just a big number.
+9. Operator dashboard
+Live batch run button with a simulated timeline of actions as they execute.
+Case-level drill-down with the timeline, diagnosis, actions and audit entries.
+Policy panel with adjustable levers (max retries, discount cap, quiet hours, minimum case value) that re-run the batch and show the recovery change.
+Alerts view for systemic issues, such as a gateway or bank degradation.
+Human-review queue with approve, reject and edit.
+10. Failure handling and safety
+Idempotency, so the same payment is never retried twice or double-charged.
+Duplicate-contact prevention across channels.
+Graceful fallback when a channel fails, such as a WhatsApp delivery failure falling back to SMS.
+Guardrails against hallucinated amounts: the agent only quotes figures pulled from the ledger.
+Sensitive-data masking (card numbers, phone numbers) in logs and screens.
+11. Differentiators for the judges
+The incremental lift vs holdout number, not just “recovered ₹”.
+Visible stopping rules and a “cases the agent chose NOT to chase” list, with reasons.
+Hinglish voice transcript demo with a payment link sent mid-call.
+Systemic root-cause detection (gateway/bank degradation) plus per-customer recovery in one flow.
+Policy sliders that change the outcome live.
+A one-page Recovery Report with the headline money number, cost, lift and compliance summary
