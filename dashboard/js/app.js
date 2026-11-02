@@ -1,13 +1,12 @@
 /**
  * Backstop Operations Command Center & Policy Lab
- * Reactive UI Controller & Chart.js Engine
+ * High-Craft Reactive UI Controller & Chart.js Engine
  */
 
-// Global State
 const state = {
   activeTab: 'cases',
   casesPage: 1,
-  casesPageSize: 12,
+  casesPageSize: 10,
   casesFilter: {
     leak_type: '',
     state: '',
@@ -27,17 +26,6 @@ const state = {
   }
 };
 
-// Utilities
-const escapeHtml = (str) => {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
-
 const fmtCurr = (n) => {
   if (n === undefined || n === null) return '₹0';
   return '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -46,36 +34,8 @@ const fmtCurr = (n) => {
 const fmtLakh = (n) => {
   if (!n) return '₹0';
   const l = n / 100000;
-  return `₹${l.toFixed(1)}L`;
+  return `₹${l.toFixed(2)}L`;
 };
-
-async function runDemoBatch() {
-  const btn = document.getElementById('btn-run-batch');
-  const originalText = btn ? btn.innerHTML : '';
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<span style="display:inline-block; width:10px; height:10px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:4px;"></span> Running...`;
-  }
-  try {
-    const res = await fetch('/api/run_batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seed: 42, count: 320 })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const result = await res.json();
-    showToast(result.message || 'Evaluated demo batch through PolicyEngine', 'success');
-    await Promise.all([loadOverview(), loadCases(), loadSystemicAlerts()]);
-  } catch (err) {
-    console.error('Failed to run demo batch:', err);
-    showToast('Failed to run batch: ' + err.message, 'danger');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = originalText;
-    }
-  }
-}
 
 const showToast = (message, type = 'success') => {
   const container = document.getElementById('toast-container');
@@ -83,17 +43,16 @@ const showToast = (message, type = 'success') => {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
-    <span>${type === 'success' ? '✓' : '⚠️'}</span>
+    <span>${type === 'success' ? '✓' : '!'}</span>
     <span>${message}</span>
   `;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 250);
-  }, 3500);
+  }, 3600);
 };
 
-// Debounce helper
 let debounceTimeout = null;
 const debounce = (func, delay = 200) => {
   return (...args) => {
@@ -101,6 +60,11 @@ const debounce = (func, delay = 200) => {
     debounceTimeout = setTimeout(() => func(...args), delay);
   };
 };
+
+function setActiveNav(el) {
+  document.querySelectorAll('.sidebar-nav .nav-link').forEach(a => a.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
 
 // =====================================================================
 // 1. DATA FETCHING & API BINDINGS
@@ -185,6 +149,112 @@ async function simulatePolicyLab() {
   }
 }
 
+async function commitPolicyToLiveEngine() {
+  try {
+    const res = await fetch('/api/policy_lab/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.policyLab)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to apply policy');
+    renderOverview(data.overview);
+    renderPolicySimulation(data.simulation);
+    loadCases();
+    loadHumanQueue();
+    loadSuppressedCases();
+    showToast(`Applied Policy to Live Engine (${data.changed_cases_count} cases updated, Live Report synced).`, 'success');
+  } catch (err) {
+    showToast(err.message, 'danger');
+  }
+}
+
+async function runLiveBatchStream() {
+  const banner = document.getElementById('live-batch-banner');
+  const bar = document.getElementById('live-batch-bar');
+  const pctEl = document.getElementById('live-batch-pct');
+  const detailEl = document.getElementById('live-batch-detail');
+  const btn = document.getElementById('btn-run-live-batch');
+  if (banner) banner.style.display = 'block';
+  if (btn) btn.disabled = true;
+
+  const steps = [
+    { p: 0.28, msg: 'Step 1/4: Ingesting at-risk events & isolating HDFC UPI degradation (#INC-904)...' },
+    { p: 0.55, msg: 'Step 2/4: Running Multi-Leak ML Diagnosis & 15% Stratified Holdout split...' },
+    { p: 0.82, msg: 'Step 3/4: Ranking Cost-Aware Net EV interventions & enforcing TRAI DND / RBI Quiet Hours...' },
+    { p: 1.00, msg: 'Step 4/4: Dispatching via Idempotent Outbox & syncing Executive Recovery Report...' }
+  ];
+
+  for (const s of steps) {
+    if (bar) bar.style.width = `${s.p * 100}%`;
+    if (pctEl) pctEl.textContent = `${Math.round(s.p * 100)}%`;
+    if (detailEl) detailEl.textContent = s.msg;
+    try {
+      const res = await fetch('/api/runs/live_batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progress: s.p })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        renderOverview(data.overview);
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 450));
+  }
+
+  loadCases();
+  loadHumanQueue();
+  loadSuppressedCases();
+  showToast('Live Batch Run Completed! Dashboard & Executive Report updated.', 'success');
+  if (btn) btn.disabled = false;
+  setTimeout(() => {
+    if (banner) banner.style.display = 'none';
+  }, 2000);
+}
+
+function openInjectModal() {
+  const m = document.getElementById('inject-modal');
+  if (m) m.classList.add('open');
+}
+
+function closeInjectModal() {
+  const m = document.getElementById('inject-modal');
+  if (m) m.classList.remove('open');
+}
+
+async function submitInjectTransaction() {
+  const payload = {
+    customer_name: document.getElementById('inj-name').value.trim() || 'Suhani Sharma',
+    amount: parseFloat(document.getElementById('inj-amount').value) || 24500,
+    leak_type: document.getElementById('inj-leak').value,
+    predicted_cause: document.getElementById('inj-cause').value,
+    bank: document.getElementById('inj-bank').value,
+    is_dnd: document.getElementById('inj-dnd').checked
+  };
+
+  try {
+    const res = await fetch('/api/cases/inject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Injection failed');
+
+    closeInjectModal();
+    renderOverview(data.overview);
+    state.casesPage = 1;
+    loadCases();
+    loadHumanQueue();
+    loadSuppressedCases();
+    showToast(`Injected ${data.case.case_id} (${data.case.customer_name}, ₹${data.case.amount.toLocaleString('en-IN')}) → ${data.case.state}`, 'success');
+    renderCaseModal(data.case);
+  } catch (err) {
+    showToast(err.message, 'danger');
+  }
+}
+
 async function openCaseDetail(caseId) {
   try {
     const res = await fetch(`/api/cases/${caseId}`);
@@ -214,6 +284,7 @@ async function submitHumanAction(caseId, action, notes = '', newDiscount = null)
     loadHumanQueue();
     loadOverview();
     loadCases();
+    loadSuppressedCases();
     closeCaseModal();
   } catch (err) {
     showToast(err.message, 'danger');
@@ -225,58 +296,63 @@ async function submitHumanAction(caseId, action, notes = '', newDiscount = null)
 // =====================================================================
 
 function renderOverview(data) {
-  // Headline Metrics Bar
-  const elRisk = document.getElementById('metric-total-risk');
-  if (elRisk) elRisk.textContent = fmtLakh(data.total_revenue_at_risk);
-  
-  const elRec = document.getElementById('metric-total-rec');
-  if (elRec) elRec.textContent = fmtLakh(data.net_money_recovered);
-  
-  const elLift = document.getElementById('metric-lift');
-  if (elLift) elLift.textContent = `+${data.incremental_lift_pct}%`;
-  
-  const elCi = document.getElementById('metric-ci');
-  if (elCi) elCi.textContent = `[95% CI: ${data.confidence_interval_95.lower_pct}% – ${data.confidence_interval_95.upper_pct}%]`;
-  
-  const elRoi = document.getElementById('metric-cost-roi');
-  if (elRoi) elRoi.textContent = `${fmtCurr(data.total_outreach_cost)} spent → ${data.net_roi_multiplier}x ROI`;
+  document.getElementById('metric-total-risk').textContent = fmtLakh(data.total_revenue_at_risk);
+  document.getElementById('metric-total-rec').textContent = fmtLakh(data.net_money_recovered);
+  document.getElementById('metric-lift').textContent = `↑ +${data.incremental_lift_pct}%`;
+  document.getElementById('metric-ci').textContent = `[95% CI: ${data.confidence_interval_95.lower_pct}%–${data.confidence_interval_95.upper_pct}%]`;
+  document.getElementById('metric-cost-roi').textContent = `${fmtCurr(data.total_outreach_cost)} cost`;
 
-  const elActive = document.getElementById('metric-active-count');
-  if (elActive) elActive.textContent = data.active_cases_count;
+  const roiBadge = document.getElementById('metric-roi-badge');
+  if (roiBadge) roiBadge.textContent = `${data.net_roi_multiplier}x ROI`;
 
-  const elSupp = document.getElementById('metric-suppressed-count');
-  if (elSupp) elSupp.textContent = data.suppressed_count;
-  
-  // Update sidebar counter
+  const casesBadge = document.getElementById('metric-cases-badge');
+  if (casesBadge) casesBadge.textContent = `${data.active_cases_count} cases`;
+
+  const protCount = document.getElementById('metric-protected-count');
+  if (protCount) protCount.textContent = data.suppressed_count;
+
   const hqCount = document.getElementById('sidebar-hq-counter');
   if (hqCount) hqCount.textContent = data.human_queue_count;
+  const actCount = document.getElementById('sidebar-active-counter');
+  if (actCount) actCount.textContent = data.active_cases_count;
+  const casesTabCount = document.getElementById('cases-tab-counter');
+  if (casesTabCount) casesTabCount.textContent = data.active_cases_count;
+  const suppSideCount = document.getElementById('sidebar-supp-counter');
+  if (suppSideCount) suppSideCount.textContent = data.suppressed_count;
+  const asideHqTotal = document.getElementById('aside-hq-total');
+  if (asideHqTotal) asideHqTotal.textContent = data.human_queue_count;
 
-  // 4 Leak Category Cards
+  const shortTitles = {
+    failed_payment: 'Failed Payments',
+    abandoned_checkout: 'Abandoned Carts',
+    subscription_mandate: 'Mandate Renewals',
+    b2b_invoice: 'B2B Invoices'
+  };
+
   const leakContainer = document.getElementById('leak-cards-container');
   if (leakContainer && data.leak_breakdown) {
     leakContainer.innerHTML = data.leak_breakdown.map(card => `
       <div class="leak-card ${state.casesFilter.leak_type === card.leak_type ? 'active-filter' : ''}" 
-           onclick="filterByLeakCard('${escapeHtml(card.leak_type)}')">
+           onclick="filterByLeakCard('${card.leak_type}')">
         <div class="leak-card-title-row">
-          <span class="leak-card-title">${escapeHtml(card.title)}</span>
-          <span class="leak-badge">${escapeHtml(card.at_risk_count)} cases</span>
+          <span class="leak-card-title">${shortTitles[card.leak_type] || card.title}</span>
+          <span class="leak-badge">${card.at_risk_count}</span>
         </div>
         <div class="leak-nums-row">
-          <span class="leak-at-risk">At Risk: <strong class="num-font">${fmtLakh(card.total_at_risk)}</strong></span>
-          <span class="leak-rate-highlight num-font">${escapeHtml(card.recovery_rate_pct)}%</span>
+          <span class="leak-at-risk">At risk: <strong class="num-font" style="color:var(--ink);">${fmtLakh(card.total_at_risk)}</strong></span>
+          <span class="leak-rate-highlight num-font">${card.recovery_rate_pct}%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" style="width: ${Number(card.recovery_rate_pct)}%"></div>
+          <div class="progress-fill" style="width: ${card.recovery_rate_pct}%"></div>
         </div>
         <div class="leak-footer">
-          <span>Top Cause:</span>
-          <span class="leak-cause-tag">${escapeHtml(card.top_root_cause)}</span>
+          <span>Top cause</span>
+          <span class="leak-cause-tag">${card.top_root_cause}</span>
         </div>
       </div>
     `).join('');
   }
 
-  // Chart: Leak Breakdown
   renderLeakChart(data.leak_breakdown);
 }
 
@@ -291,13 +367,12 @@ function renderSystemicAlerts(data) {
 
   const alert = data.alerts[0];
   container.innerHTML = `
-    <div class="incident-strip">
+    <div class="incident-strip" role="status">
       <div class="incident-strip-left">
-        <span class="incident-badge-pill">${escapeHtml(alert.status || 'ACTIVE_MITIGATION')}</span>
-        <span class="incident-title-text">${escapeHtml(alert.title)}</span>
-        <span class="incident-meta-text">(${escapeHtml(alert.impacted_entity)} · ${escapeHtml(alert.drop_pct)}% drop · ${escapeHtml(alert.spam_prevented_count)} cases held from spam)</span>
+        <span class="incident-dot"></span>
+        <span>HDFC UPI route degradation (-${alert.drop_pct}%) · ${alert.spam_prevented_count} cases safely held or rerouted without customer spam</span>
       </div>
-      <a href="#section-active-cases" onclick="filterByLeakCard('failed_payment')" class="incident-action-link">View impacted cases →</a>
+      <button class="link-btn" onclick="filterByLeakCard('failed_payment')">View incident cases →</button>
     </div>
   `;
 }
@@ -307,42 +382,46 @@ function renderCasesTable(data) {
   if (!tbody) return;
 
   if (!data.cases || data.cases.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:32px; color:var(--text-muted);">No cases match the selected filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:32px; color:var(--muted);">No cases match the selected filters.</td></tr>`;
     return;
   }
 
+  const stateLabels = {
+    RECOVERED: { cls: 'badge-state-recovered', text: 'Recovered' },
+    EXECUTING: { cls: 'badge-state-executing', text: 'Allowed · Executing' },
+    PROMISED: { cls: 'badge-state-promised', text: 'Promised (PTP)' },
+    DISPUTED: { cls: 'badge-state-disputed', text: 'Needs review' },
+    POLICY_BLOCKED: { cls: 'badge-state-blocked', text: 'Blocked' },
+    READY: { cls: 'badge-state-ready', text: 'Needs review' },
+    CLOSED: { cls: 'badge-state-ready', text: 'Closed' }
+  };
+
   tbody.innerHTML = data.cases.map(c => {
-    let stateClass = 'badge-state-ready';
-    if (c.state === 'RECOVERED') stateClass = 'badge-state-recovered';
-    else if (c.state === 'EXECUTING') stateClass = 'badge-state-executing';
-    else if (c.state === 'PROMISED') stateClass = 'badge-state-promised';
-    else if (c.state === 'DISPUTED') stateClass = 'badge-state-disputed';
-    else if (c.state === 'POLICY_BLOCKED') stateClass = 'badge-state-blocked';
+    const st = stateLabels[c.state] || { cls: 'badge-state-ready', text: c.state };
+    const cleanAction = (c.chosen_action || '').replace(/_/g, ' ');
 
     return `
-      <tr onclick="openCaseDetail('${escapeHtml(c.case_id)}')">
-        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(c.case_id)}</td>
+      <tr onclick="openCaseDetail('${c.case_id}')">
+        <td class="num-font" style="font-weight:600; color:var(--ink);">#${c.case_id.replace('CASE-2026', 'CS-')}</td>
         <td>
-          <div style="font-weight:600;">${escapeHtml(c.customer_name)}</div>
-          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${escapeHtml(c.phone_masked)}</div>
+          <div style="font-weight:600; color:var(--ink);">${c.customer_name}</div>
+          <div class="num-font" style="font-size:11px; color:var(--muted);">${c.phone_masked}</div>
         </td>
         <td>
-          <span class="leak-badge">${escapeHtml(c.leak_type.replace('_', ' '))}</span>
-          ${c.is_control_group ? '<span class="badge-control-tag">HOLD-OUT</span>' : ''}
-          ${c.is_systemic ? '<span class="badge-pill" style="background:#FEE2E2; color:#B91C1C;">SYSTEMIC</span>' : ''}
+          <span style="color:var(--ink-secondary); font-weight:500;">${c.leak_type.replace(/_/g, ' ')}</span>
+          ${c.is_control_group ? '<span class="badge-control-tag">Holdout</span>' : ''}
         </td>
-        <td class="num-font" style="font-weight:700;">${fmtCurr(c.amount)}</td>
         <td>
-          <div>${escapeHtml(c.predicted_cause)}</div>
-          <div style="font-size:10.5px; color:var(--text-muted);">${Math.round(c.confidence * 100)}% confidence</div>
+          <div style="font-weight:500; color:var(--ink); text-transform:capitalize;">${cleanAction}</div>
+          <div style="font-size:11px; color:var(--muted);">Cause: ${c.predicted_cause.replace(/_/g, ' ')} (${Math.round(c.confidence * 100)}%)</div>
         </td>
-        <td class="num-font" style="color:#059669; font-weight:600;">+${fmtCurr(c.net_ev)}</td>
-        <td><span class="badge-pill ${stateClass}">${escapeHtml(c.state)}</span></td>
+        <td class="num-font" style="font-weight:600; color:var(--ink);">${fmtCurr(c.amount)}</td>
+        <td class="num-font" style="color:var(--green); font-weight:600;">+${fmtCurr(c.net_ev)}</td>
+        <td><span class="badge-pill ${st.cls}">${st.text}</span></td>
       </tr>
     `;
   }).join('');
 
-  // Pagination info
   document.getElementById('pagination-info').textContent = 
     `Showing page ${data.page} of ${data.total_pages} (${data.total} total cases)`;
   document.getElementById('btn-prev-page').disabled = (data.page <= 1);
@@ -353,35 +432,50 @@ function renderHumanQueue(data) {
   const tbody = document.getElementById('human-queue-body');
   const countBadge = document.getElementById('hq-tab-counter');
   if (countBadge) countBadge.textContent = data.count || 0;
+  const asideTotal = document.getElementById('aside-hq-total');
+  if (asideTotal) asideTotal.textContent = data.count || 0;
+
+  if (data.queue) {
+    const dispCnt = data.queue.filter(i => i.state === 'DISPUTED' || (i.escalation_reason || '').toLowerCase().includes('dispute')).length;
+    const highCnt = data.queue.filter(i => i.amount >= 50000 && i.state !== 'DISPUTED').length;
+    const lowCnt = Math.max(0, data.queue.length - dispCnt - highCnt);
+    const elD = document.getElementById('aside-hq-dispute');
+    const elH = document.getElementById('aside-hq-highval');
+    const elL = document.getElementById('aside-hq-lowconf');
+    if (elD) elD.textContent = dispCnt;
+    if (elH) elH.textContent = highCnt;
+    if (elL) elL.textContent = lowCnt;
+  }
+
   if (!tbody) return;
 
   if (!data.queue || data.queue.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:32px; color:var(--text-muted);">🎉 All flagged cases reviewed! Zero items in human approval escrow.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:32px; color:var(--muted);">All flagged cases reviewed. Zero items awaiting human approval.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = data.queue.map(item => `
     <tr>
-      <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(item.case_id)}</td>
+      <td class="num-font" style="font-weight:600; color:var(--indigo); cursor:pointer;" onclick="openCaseDetail('${item.case_id}')">${item.case_id}</td>
       <td>
-        <div style="font-weight:600;">${escapeHtml(item.customer_name)}</div>
-        <div class="num-font" style="font-size:11.5px; font-weight:700;">${fmtCurr(item.amount)}</div>
+        <div style="font-weight:600; color:var(--ink);">${item.customer_name}</div>
+        <div class="num-font" style="font-size:11.5px; font-weight:600; color:var(--muted);">${fmtCurr(item.amount)}</div>
       </td>
       <td>
-        <span class="badge-pill ${item.urgency === 'HIGH' ? 'badge-state-blocked' : 'badge-state-disputed'}">${escapeHtml(item.urgency)}</span>
+        <span class="badge-pill ${item.urgency === 'HIGH' ? 'badge-state-blocked' : 'badge-state-disputed'}">${item.urgency}</span>
       </td>
       <td>
-        <div style="font-weight:500;">${escapeHtml(item.escalation_reason)}</div>
-        <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.diagnosis_summary)}</div>
+        <div style="font-weight:500; color:var(--ink);">${item.escalation_reason}</div>
+        <div style="font-size:11px; color:var(--muted);">${item.diagnosis_summary}</div>
       </td>
       <td>
-        <span class="leak-badge">${escapeHtml(item.recommended_action)}</span>
+        <span class="leak-badge">${item.recommended_action.replace(/_/g, ' ')}</span>
       </td>
       <td>
         <div style="display:flex; gap:6px;">
-          <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'approve')">Approve</button>
-          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'reject')">Reject</button>
-          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'resolve_dispute')">Freeze</button>
+          <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'approve')">Approve</button>
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'reject')">Suppress</button>
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'resolve_dispute')">Freeze</button>
         </div>
       </td>
     </tr>
@@ -396,17 +490,17 @@ function renderSuppressedCases(data) {
 
   if (container) {
     container.innerHTML = `
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
         <div>
-          <div style="font-size:16px; font-weight:700; color:#065F46;">🛡️ ${escapeHtml(data.trust_statement)}</div>
-          <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">
-            By enforcing strict TRAI DND checks, negative EV margin filters, and dispute freezes, Backstop guarantees no brand damage.
+          <div style="font-size:14px; font-weight:700; color:var(--green);">✓ ${data.trust_statement}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+            Enforcing TRAI DND checks, negative EV margin filters, and dispute freezes protects brand trust.
           </div>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           ${Object.entries(data.breakdown_by_rule || {}).map(([r, cnt]) => `
-            <span class="alert-chip" style="background:#F1F5F9; border-color:#CBD5E1; color:#334155;">
-              ${escapeHtml(r)}: <strong>${escapeHtml(cnt)}</strong>
+            <span class="leak-badge" style="background:var(--surface); border:1px solid var(--green-border); color:var(--ink);">
+              ${r}: <strong>${cnt}</strong>
             </span>
           `).join('')}
         </div>
@@ -416,21 +510,21 @@ function renderSuppressedCases(data) {
 
   if (tbody && data.suppressed_cases) {
     tbody.innerHTML = data.suppressed_cases.map(item => `
-      <tr onclick="openCaseDetail('${escapeHtml(item.case_id)}')">
-        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(item.case_id)}</td>
+      <tr onclick="openCaseDetail('${item.case_id}')">
+        <td class="num-font" style="font-weight:600; color:var(--indigo);">${item.case_id}</td>
         <td>
-          <div style="font-weight:600;">${escapeHtml(item.customer_name)}</div>
-          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.phone_masked)}</div>
+          <div style="font-weight:600; color:var(--ink);">${item.customer_name}</div>
+          <div class="num-font" style="font-size:11px; color:var(--muted);">${item.phone_masked}</div>
         </td>
-        <td><span class="leak-badge">${escapeHtml(item.leak_type.replace('_', ' '))}</span></td>
-        <td class="num-font" style="font-weight:700;">${fmtCurr(item.amount)}</td>
+        <td><span class="leak-badge">${item.leak_type.replace(/_/g, ' ')}</span></td>
+        <td class="num-font" style="font-weight:600; color:var(--ink);">${fmtCurr(item.amount)}</td>
         <td>
-          <span class="badge-pill badge-state-blocked">${escapeHtml(item.block_reason)}</span>
-          <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Fired: ${escapeHtml(item.stopping_rule_fired)}</div>
+          <span class="badge-pill badge-state-blocked">${item.block_reason}</span>
+          <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Rule: ${item.stopping_rule_fired}</div>
         </td>
         <td>
-          <div style="color:#059669; font-weight:600;">₹${escapeHtml(item.wasted_spend_saved)} saved</div>
-          <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.customer_goodwill_preserved)}</div>
+          <div style="color:var(--green); font-weight:600;">₹${item.wasted_spend_saved} outreach saved</div>
+          <div style="font-size:11px; color:var(--muted);">${item.customer_goodwill_preserved}</div>
         </td>
       </tr>
     `).join('');
@@ -438,25 +532,23 @@ function renderSuppressedCases(data) {
 }
 
 function renderPolicySimulation(data) {
-  // Update projections
   document.getElementById('sim-projected-rec').textContent = fmtLakh(data.projected_net_recovered);
   document.getElementById('sim-delta-badge').textContent = `${data.delta_vs_baseline_pct >= 0 ? '+' : ''}${data.delta_vs_baseline_pct}% vs baseline`;
   document.getElementById('sim-roi').textContent = `${data.projected_net_roi_multiplier}x`;
   document.getElementById('sim-blocked-cases').textContent = `${data.blocked_cases_count} cases`;
-  document.getElementById('sim-cost').textContent = fmtCurr(data.projected_outreach_cost);
+  const costEl = document.getElementById('sim-cost');
+  if (costEl) costEl.textContent = fmtCurr(data.projected_outreach_cost);
   
-  // Update notes
   const notesContainer = document.getElementById('sim-notes-container');
   if (notesContainer && data.simulation_notes) {
     notesContainer.innerHTML = data.simulation_notes.map(n => `<div>• ${n}</div>`).join('');
   }
 
-  // Update Radar Chart
   renderPolicyRadarChart(data.tradeoff_radar);
 }
 
 // =====================================================================
-// 3. CASE DRILL-DOWN MODAL (5-STEP EXPLAINABILITY CHAIN)
+// 3. CASE DRILL-DOWN MODAL
 // =====================================================================
 
 function renderCaseModal(c) {
@@ -467,44 +559,37 @@ function renderCaseModal(c) {
   document.getElementById('modal-cust-name').textContent = c.customer_name;
   document.getElementById('modal-amount').textContent = fmtCurr(c.amount);
 
-  // Step 1: Detect
   document.getElementById('step1-content').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px;">
-      <div><span style="color:var(--text-muted);">Leak Type:</span> <strong class="leak-badge">${escapeHtml(c.leak_type)}</strong></div>
-      <div><span style="color:var(--text-muted);">Timestamp:</span> <strong class="num-font">${escapeHtml(c.created_at_str)}</strong></div>
-      <div><span style="color:var(--text-muted);">Days at Risk:</span> <strong>${escapeHtml(c.days_at_risk)} days</strong></div>
-      <div><span style="color:var(--text-muted);">Masked Phone:</span> <strong class="num-font">${escapeHtml(c.phone_masked)}</strong></div>
+      <div><span style="color:var(--muted);">Leak Type:</span> <strong class="leak-badge">${c.leak_type}</strong></div>
+      <div><span style="color:var(--muted);">Timestamp:</span> <strong class="num-font">${c.created_at_str}</strong></div>
+      <div><span style="color:var(--muted);">Days at Risk:</span> <strong>${c.days_at_risk} days</strong></div>
+      <div><span style="color:var(--muted);">Masked Phone:</span> <strong class="num-font">${c.phone_masked}</strong></div>
     </div>
-    <div style="margin-top:10px; font-size:11.5px; background:var(--bg-surface-elevated); padding:8px 12px; border-radius:var(--radius-sm);">
-      Metadata: ${Object.entries(c.metadata || {}).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' | ')}
+    <div style="margin-top:8px; font-size:11.5px; background:var(--canvas); padding:7px 10px; border-radius:4px; color:var(--ink-secondary);">
+      Metadata: ${Object.entries(c.metadata || {}).map(([k, v]) => `<code>${k}: ${v}</code>`).join(' · ')}
     </div>
   `;
 
-  // Step 2: Diagnose
-  const diag = c.diagnosis || {};
+  const diag = c.diagnosis;
   document.getElementById('step2-content').innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <div>
-        <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted);">Predicted Root Cause</span>
-        <div style="font-size:17px; font-weight:700; color:var(--primary-accent);">${escapeHtml(diag.predicted_cause)}</div>
+        <span style="font-size:10.5px; text-transform:uppercase; color:var(--muted);">Predicted Root Cause</span>
+        <div style="font-size:15px; font-weight:700; color:var(--indigo);">${diag.predicted_cause}</div>
       </div>
       <div style="text-align:right;">
-        <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted);">Model Confidence</span>
-        <div class="num-font" style="font-size:18px; font-weight:700; color:#059669;">${Math.round((diag.confidence || 0) * 100)}%</div>
+        <span style="font-size:10.5px; text-transform:uppercase; color:var(--muted);">Model Confidence</span>
+        <div class="num-font" style="font-size:16px; font-weight:700; color:var(--green);">${Math.round(diag.confidence * 100)}%</div>
       </div>
     </div>
-    <div style="font-size:12px; margin-bottom:6px; font-weight:600; color:var(--text-muted);">Extracted Diagnostic Evidence:</div>
-    <ul style="padding-left:18px; font-size:12px; color:var(--text-main); line-height:1.6;">
-      ${(diag.evidence || []).map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+    <ul style="padding-left:18px; font-size:12px; color:var(--ink-secondary); line-height:1.5;">
+      ${(diag.evidence || []).map(e => `<li>${e}</li>`).join('')}
     </ul>
   `;
 
-  // Step 3: Decide (EV Ranking Table)
   const rankings = c.ranked_interventions || [];
   document.getElementById('step3-content').innerHTML = `
-    <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">
-      Cost-Aware Net EV Calculation: <code>Net EV = (P_rec × Amount) - Cost_channel - Discount - Risk_penalty</code>
-    </div>
     <table class="ev-table">
       <thead>
         <tr>
@@ -514,93 +599,92 @@ function renderCaseModal(c) {
           <th>Channel Cost</th>
           <th>Discount</th>
           <th>Net EV</th>
-          <th>Selection Rationale</th>
+          <th>Rationale</th>
         </tr>
       </thead>
       <tbody>
         ${rankings.map(r => `
           <tr class="${r.is_chosen ? 'row-chosen' : ''}">
-            <td><strong>${escapeHtml(r.action)}</strong> ${r.is_chosen ? '★ WINNER' : ''}</td>
-            <td>${Math.round((r.p_recovery || 0) * 100)}%</td>
+            <td><strong>${r.action}</strong> ${r.is_chosen ? '★ Chosen' : ''}</td>
+            <td>${Math.round(r.p_recovery * 100)}%</td>
             <td>${fmtCurr(r.expected_value)}</td>
-            <td>₹${escapeHtml(r.channel_cost)}</td>
-            <td>₹${escapeHtml(r.expected_discount)}</td>
-            <td style="color:${r.net_ev > 0 ? '#059669' : '#DC2626'}; font-weight:700;">+${fmtCurr(r.net_ev)}</td>
-            <td>${escapeHtml(r.rationale)}</td>
+            <td>₹${r.channel_cost}</td>
+            <td>₹${r.expected_discount}</td>
+            <td style="color:${r.net_ev > 0 ? 'var(--green)' : 'var(--red)'}; font-weight:700;">+${fmtCurr(r.net_ev)}</td>
+            <td>${r.rationale}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
 
-  // Step 4: Policy Check
-  const pol = c.policy_check || {};
+  const pol = c.policy_check;
   document.getElementById('step4-content').innerHTML = `
     <div class="policy-gate-grid">
       <div class="gate-box">
-        <div class="gate-name">TRAI National DND Check</div>
-        <div class="gate-status ${pol.dnd_status && pol.dnd_status.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.dnd_status || 'PASS')}</div>
+        <div class="gate-name">TRAI National DND</div>
+        <div class="gate-status ${pol.dnd_status.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.dnd_status}</div>
       </div>
       <div class="gate-box">
-        <div class="gate-name">RBI Quiet Hours (8PM-8AM)</div>
-        <div class="gate-status ${pol.quiet_hours && pol.quiet_hours.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.quiet_hours || 'PASS')}</div>
+        <div class="gate-name">RBI Quiet Hours</div>
+        <div class="gate-status ${pol.quiet_hours.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.quiet_hours}</div>
       </div>
       <div class="gate-box">
-        <div class="gate-name">Margin Discount Guardrail</div>
-        <div class="gate-status ${pol.margin_guardrail && pol.margin_guardrail.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.margin_guardrail || 'PASS')}</div>
+        <div class="gate-name">Margin Guardrail</div>
+        <div class="gate-status ${pol.margin_guardrail.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.margin_guardrail}</div>
       </div>
       <div class="gate-box">
-        <div class="gate-name">Anti-Spam Frequency Cap</div>
-        <div class="gate-status status-pass">${escapeHtml(pol.frequency_cap || 'PASS')}</div>
+        <div class="gate-name">Frequency Cap</div>
+        <div class="gate-status status-pass">${pol.frequency_cap}</div>
       </div>
       <div class="gate-box">
-        <div class="gate-name">Dispute Freeze Protection</div>
-        <div class="gate-status ${pol.dispute_hold && pol.dispute_hold.includes('PASS') ? 'status-pass' : 'status-held'}">${escapeHtml(pol.dispute_hold || 'PASS')}</div>
+        <div class="gate-name">Dispute Freeze</div>
+        <div class="gate-status ${pol.dispute_hold.includes('PASS') ? 'status-pass' : 'status-held'}">${pol.dispute_hold}</div>
       </div>
       <div class="gate-box">
-        <div class="gate-name">Human Escalation Floor</div>
-        <div class="gate-status ${pol.requires_human ? 'status-held' : 'status-pass'}">${pol.requires_human ? 'Flagged for Human' : 'Auto-Cleared'}</div>
+        <div class="gate-name">Human Escalation</div>
+        <div class="gate-status ${pol.requires_human ? 'status-held' : 'status-pass'}">${pol.requires_human ? 'Flagged for Review' : 'Auto-Cleared'}</div>
       </div>
     </div>
   `;
 
-  // Step 5: Execute
-  const ex = c.execution || {};
+  const ex = c.execution;
   document.getElementById('step5-content').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px;">
-      <div><span style="color:var(--text-muted);">Channel:</span> <strong>${escapeHtml(ex.channel)}</strong></div>
-      <div><span style="color:var(--text-muted);">Outbox Status:</span> <strong class="badge-pill badge-state-executing">${escapeHtml(ex.outbox_status)}</strong></div>
-      <div><span style="color:var(--text-muted);">Receipt ID:</span> <strong class="num-font">${escapeHtml(ex.delivery_receipt_id || 'N/A')}</strong></div>
-      <div><span style="color:var(--text-muted);">Dispatch Time:</span> <strong class="num-font">${escapeHtml(ex.timestamp)}</strong></div>
+      <div><span style="color:var(--muted);">Channel:</span> <strong>${ex.channel}</strong></div>
+      <div><span style="color:var(--muted);">Outbox Status:</span> <strong class="badge-pill badge-state-executing">${ex.outbox_status}</strong></div>
+      <div><span style="color:var(--muted);">Receipt ID:</span> <strong class="num-font">${ex.delivery_receipt_id || 'N/A'}</strong></div>
+      <div><span style="color:var(--muted);">Dispatch Time:</span> <strong class="num-font">${ex.timestamp}</strong></div>
     </div>
-    <div style="margin-top:8px; font-size:11.5px; color:var(--text-muted);">
-      Idempotency Key: <code class="num-font">${escapeHtml(ex.idempotency_key)}</code>
+    <div style="margin-top:6px; font-size:11px; color:var(--muted);">
+      Idempotency Key: <code class="num-font">${ex.idempotency_key}</code> · ${ex.dispatch_note || 'Simulated provider confirmation'}
     </div>
   `;
 
-  // Audit Log Timeline
   const audit = c.audit_trail || [];
   document.getElementById('modal-audit-log').innerHTML = audit.map(a => `
-    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-subtle); font-size:12px;">
+    <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); font-size:11.5px;">
       <div>
-        <strong>${escapeHtml(a.action_or_rule)}</strong> (${escapeHtml(a.from_state)} ➔ ${escapeHtml(a.to_state)})
-        <div style="color:var(--text-muted); font-size:11px;">${escapeHtml(a.notes)} [Actor: ${escapeHtml(a.actor)}]</div>
+        <strong>${a.action_or_rule}</strong> (${a.from_state} → ${a.to_state})
+        <div style="color:var(--muted); font-size:11px;">${a.notes} [Actor: ${a.actor}]</div>
       </div>
-      <div class="num-font" style="color:var(--text-muted); font-size:11px;">${escapeHtml(a.timestamp)}</div>
+      <div class="num-font" style="color:var(--muted); font-size:11px;">${a.timestamp}</div>
     </div>
   `).join('');
 
-  // Operator Action Buttons in Modal
   const actionContainer = document.getElementById('modal-actions-container');
   if (actionContainer) {
+    const voiceLinkBtn = `<a href="/voice?case_id=${c.case_id}" target="_blank" class="btn btn-secondary">Launch Live Voice Call (${c.customer_name}) ↗</a>`;
     if (c.requires_human_approval) {
       actionContainer.innerHTML = `
+        ${voiceLinkBtn}
         <button class="btn btn-outline" onclick="closeCaseModal()">Close</button>
-        <button class="btn btn-danger" onclick="submitHumanAction('${escapeHtml(c.case_id)}', 'reject')">Reject & Suppress</button>
-        <button class="btn btn-success" onclick="submitHumanAction('${escapeHtml(c.case_id)}', 'approve')">Approve Action</button>
+        <button class="btn btn-danger" onclick="submitHumanAction('${c.case_id}', 'reject')">Suppress</button>
+        <button class="btn btn-success" onclick="submitHumanAction('${c.case_id}', 'approve')">Approve Action</button>
       `;
     } else {
       actionContainer.innerHTML = `
+        ${voiceLinkBtn}
         <button class="btn btn-outline" onclick="closeCaseModal()">Close</button>
       `;
     }
@@ -626,7 +710,13 @@ function renderLeakChart(breakdown) {
     state.charts.leakChart.destroy();
   }
 
-  const labels = breakdown.map(b => b.title);
+  const shortMap = {
+    failed_payment: 'Failed Pay',
+    abandoned_checkout: 'Carts',
+    subscription_mandate: 'Mandates',
+    b2b_invoice: 'Invoices'
+  };
+  const labels = breakdown.map(b => shortMap[b.leak_type] || b.title);
   const atRiskData = breakdown.map(b => b.total_at_risk / 100000);
   const recoveredData = breakdown.map(b => b.net_recovered / 100000);
 
@@ -636,16 +726,16 @@ function renderLeakChart(breakdown) {
       labels: labels,
       datasets: [
         {
-          label: 'Total at Risk (₹ Lakhs)',
+          label: 'At Risk',
           data: atRiskData,
-          backgroundColor: '#94A3B8',
-          borderRadius: 6
+          backgroundColor: '#CBD5E1',
+          borderRadius: 4
         },
         {
-          label: 'Net Recovered (₹ Lakhs)',
+          label: 'Recovered',
           data: recoveredData,
-          backgroundColor: '#10B981',
-          borderRadius: 6
+          backgroundColor: '#2947B8',
+          borderRadius: 4
         }
       ]
     },
@@ -653,20 +743,16 @@ function renderLeakChart(breakdown) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Inter' } } },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ₹${ctx.parsed.y.toFixed(1)} Lakhs`
-          }
-        }
+        legend: { position: 'top', labels: { boxWidth: 10, font: { family: 'Inter', size: 11 } } }
       },
       scales: {
         y: {
           beginAtZero: true,
-          title: { display: true, text: '₹ Lakhs' },
-          grid: { color: 'rgba(0,0,0,0.05)' }
+          ticks: { font: { size: 10 } },
+          grid: { color: 'rgba(0,0,0,0.04)' }
         },
         x: {
+          ticks: { font: { size: 10 } },
           grid: { display: false }
         }
       }
@@ -690,10 +776,10 @@ function renderPolicyRadarChart(radarData) {
         'Compliance Safety',
         'Customer Goodwill',
         'Cost Efficiency',
-        'Operational Speed'
+        'Op. Speed'
       ],
       datasets: [{
-        label: 'Policy Balance Profile',
+        label: 'Policy Profile',
         data: [
           radarData.recovery_strength || 70,
           radarData.compliance_safety || 85,
@@ -701,12 +787,10 @@ function renderPolicyRadarChart(radarData) {
           radarData.cost_efficiency || 75,
           radarData.operational_speed || 90
         ],
-        backgroundColor: 'rgba(37, 99, 235, 0.2)',
-        borderColor: '#2563EB',
-        pointBackgroundColor: '#2563EB',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#2563EB'
+        backgroundColor: 'rgba(41, 71, 184, 0.15)',
+        borderColor: '#2947B8',
+        pointBackgroundColor: '#2947B8',
+        pointBorderColor: '#fff'
       }]
     },
     options: {
@@ -755,13 +839,16 @@ function filterByLeakCard(leakType) {
     if (select) select.value = leakType;
   }
   state.casesPage = 1;
+  switchTab('cases');
   loadCases();
   loadOverview();
 }
 
 function applyPolicyPreset(preset) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (window.event && window.event.target) {
+    window.event.target.classList.add('active');
+  }
 
   if (preset === 'balanced') {
     state.policyLab = {
@@ -789,7 +876,6 @@ function applyPolicyPreset(preset) {
     };
   }
 
-  // Update DOM sliders
   document.getElementById('slider-retry').value = state.policyLab.retry_limit;
   document.getElementById('val-retry').textContent = `${state.policyLab.retry_limit} attempts`;
 
@@ -811,7 +897,6 @@ function applyPolicyPreset(preset) {
 const debouncedSimulate = debounce(simulatePolicyLab, 150);
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initial loads
   loadOverview();
   loadSystemicAlerts();
   loadCases();
@@ -819,12 +904,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSuppressedCases();
   simulatePolicyLab();
 
-  // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  // Table filters
   const filterLeak = document.getElementById('filter-leak-type');
   if (filterLeak) {
     filterLeak.addEventListener('change', (e) => {
@@ -858,10 +941,21 @@ document.addEventListener('DOMContentLoaded', () => {
       state.casesFilter.search = e.target.value.trim();
       state.casesPage = 1;
       loadCases();
-    }, 250));
+    }, 220));
   }
 
-  // Pagination buttons
+  const globalSearch = document.getElementById('global-topbar-search');
+  if (globalSearch) {
+    globalSearch.addEventListener('input', debounce((e) => {
+      const val = e.target.value.trim();
+      state.casesFilter.search = val;
+      if (searchInput) searchInput.value = val;
+      state.casesPage = 1;
+      switchTab('cases');
+      loadCases();
+    }, 220));
+  }
+
   const btnPrev = document.getElementById('btn-prev-page');
   const btnNext = document.getElementById('btn-next-page');
   if (btnPrev) {
@@ -879,7 +973,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Policy Lab Sliders Listeners
   const sRetry = document.getElementById('slider-retry');
   if (sRetry) {
     sRetry.addEventListener('input', (e) => {
@@ -925,13 +1018,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Dark Mode Toggle
   const themeToggle = document.getElementById('theme-toggle-btn');
   if (themeToggle) {
     themeToggle.addEventListener('click', () => {
       document.body.classList.toggle('dark');
-      const isDark = document.body.classList.contains('dark');
-      themeToggle.textContent = isDark ? '☀️' : '🌙';
     });
   }
 });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Backstop — One-Page Executive Recovery Report</title>
+<title>Backstop — Live Executive Recovery Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -45,11 +45,10 @@
     width: 100%;
     max-width: 980px;
     border: 1px solid var(--border);
-    padding: 36px 42px;
+    padding: 32px 40px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.04);
   }
 
-  /* Printable Rules: strict 1-page fit */
   @page {
     size: A4 portrait;
     margin: 10mm 12mm;
@@ -65,14 +64,13 @@
     .no-print { display: none !important; }
   }
 
-  /* Header Section */
   .report-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding-bottom: 16px;
+    padding-bottom: 14px;
     border-bottom: 2px solid var(--border-dark);
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .brand-title {
     font-family: var(--serif);
@@ -112,31 +110,66 @@
     font-size: 13px;
   }
 
-  /* Print Button Bar */
   .toolbar {
     display: flex;
-    justify-content: flex-end;
-    margin-bottom: 12px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: var(--credit-bg);
+    border: 1px solid #B7DFC5;
+    border-radius: 4px;
     gap: 10px;
+  }
+  .live-sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--credit);
+    font-weight: 600;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10B981;
+  }
+  .toolbar-actions {
+    display: flex;
+    gap: 8px;
   }
   .btn-print {
     font-family: var(--mono);
-    font-size: 11.5px;
-    padding: 6px 14px;
+    font-size: 11px;
+    padding: 6px 12px;
     background: var(--ink);
     color: var(--paper);
     border: none;
     cursor: pointer;
     border-radius: 3px;
+    text-decoration: none;
   }
   .btn-print:hover { background: #3E392E; }
+  .btn-secondary {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--border-dark);
+    cursor: pointer;
+    border-radius: 3px;
+    text-decoration: none;
+  }
+  .btn-secondary:hover { background: var(--card-bg); }
 
-  /* Judges Executive Summary */
   .summary-box {
     background: var(--card-bg);
     border-left: 4px solid var(--border-dark);
-    padding: 14px 18px;
-    margin-bottom: 20px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
     border-radius: 0 4px 4px 0;
   }
   .summary-label {
@@ -147,20 +180,21 @@
     color: var(--ink-light);
     letter-spacing: 0.04em;
     margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
   }
   .summary-text {
     font-family: var(--serif);
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 13.5px;
+    line-height: 1.5;
     color: var(--ink);
   }
 
-  /* Financial Highlights Grid */
   .financial-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .kpi-card {
     background: var(--card-bg);
@@ -178,7 +212,7 @@
   }
   .kpi-value {
     font-family: var(--mono);
-    font-size: 21px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--ink);
   }
@@ -190,10 +224,9 @@
     margin-top: 3px;
   }
 
-  /* Section Titles */
   .section-heading {
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
@@ -205,11 +238,10 @@
     justify-content: space-between;
   }
 
-  /* Tables */
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     font-family: var(--sans);
     font-size: 12px;
   }
@@ -219,12 +251,12 @@
     font-size: 10px;
     text-transform: uppercase;
     color: var(--ink-light);
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-bottom: 1.5px solid var(--border-dark);
     background: var(--card-bg);
   }
   td {
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-bottom: 1px solid var(--border);
     color: var(--ink);
   }
@@ -244,17 +276,16 @@
     border: 1px solid #D5CEBD;
   }
 
-  /* Funnel Progression Bar */
   .funnel-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .funnel-step {
     border: 1px solid var(--border);
     background: var(--card-bg);
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 3px;
     position: relative;
   }
@@ -277,17 +308,16 @@
     color: var(--ink-light);
   }
 
-  /* Compliance & Trust Audit Grid */
   .audit-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .audit-card {
     border: 1px solid var(--border);
     background: var(--card-bg);
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 3px;
   }
   .audit-card-title {
@@ -299,7 +329,7 @@
   }
   .audit-card-num {
     font-family: var(--mono);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--info);
   }
@@ -310,7 +340,27 @@
     margin-top: 2px;
   }
 
-  /* Footer */
+  .activity-box {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    padding: 10px 14px;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+  }
+  .activity-row {
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .activity-row:last-child { border-bottom: none; }
+  .act-time { color: var(--ink-light); font-size: 9.5px; white-space: nowrap; }
+  .act-badge { background: #EFECE1; border: 1px solid #D5CEBD; padding: 1px 6px; border-radius: 2px; font-weight: 600; font-size: 9.5px; white-space: nowrap; }
+  .act-detail { color: var(--ink); }
+
   .report-footer {
     padding-top: 10px;
     border-top: 1px solid var(--border);
@@ -326,9 +376,18 @@
 <body>
 
 <div class="page-container">
-  <!-- Toolbar (hidden on print) -->
+  <!-- Interactive Live Sync Toolbar (hidden on print) -->
   <div class="toolbar no-print">
-    <button class="btn-print" onclick="window.print()">Print Report / Save as PDF</button>
+    <div class="live-sync-indicator">
+      <div class="live-dot"></div>
+      <span>LIVE DYNAMIC REPORT &bull; SYNCED WITH COMMAND CENTER, POLICY LAB &amp; VOICE CALLS</span>
+    </div>
+    <div class="toolbar-actions">
+      <a href="/" class="btn-secondary">&larr; Back to Command Center</a>
+      <button class="btn-secondary" onclick="window.location.reload()">&#x21bb; Refresh Live Data</button>
+      <button class="btn-secondary" onclick="exportReportJson()">Download JSON Audit</button>
+      <button class="btn-print" onclick="window.print()">Print Report / Save as PDF</button>
+    </div>
   </div>
 
   <!-- Header -->
@@ -341,39 +400,42 @@
       <div class="brand-sub">Autonomous AI Revenue Recovery Engine &bull; Razorpay Platform</div>
     </div>
     <div class="report-meta">
-      <div>Merchant: <strong>Razorpay Enterprise Merchant / ACME Retail India</strong></div>
+      <div>Merchant: <strong>Razorpay Enterprise Merchant (Live Demo Store)</strong></div>
       <div>Date: <strong>November 02, 2026</strong></div>
-      <div class="meta-runid">Run ID: demo_run_20261102</div>
+      <div class="meta-runid">Run ID: RUN-2026-11-02-LIVE-42</div>
     </div>
   </div>
 
   <!-- Executive Summary -->
   <div class="summary-box">
-    <div class="summary-label">Judges' Executive Summary</div>
-    <div class="summary-text">During the evaluation of batch demo_run_20261102, Backstop analyzed 320 at-risk cases totaling ₹68,81,334 across 4 distinct revenue leak categories. The autonomous engine achieved a net recovered revenue of ₹37,46,465, delivering an incremental lift of +52.2% [95% CI: +43.2% to +61.2%] over holdout control with a net strategy ROI of 156.8x. Crucially, zero compliance violations occurred: 42 outbound attempts were deferred during quiet hours, 18 disputed cases were immediately frozen for human accounts reconciliation, and 12 DND opt-outs were strictly respected. Backstop successfully recovered high-probability revenue through cost-aware intervention ranking while fully insulating the merchant against regulatory exposure and customer friction.</div>
+    <div class="summary-label">
+      <span>Judges' Executive Summary</span>
+      <span>Active Policy: Max Retries=4 | Discount Cap=15% | Floor=₹300 | Human Floor=₹45,000</span>
+    </div>
+    <div class="summary-text">During the evaluation of batch RUN-2026-11-02-LIVE-42, Backstop analyzed 321 at-risk cases totaling ₹54,50,000 across 4 distinct revenue leak categories. The autonomous engine achieved a net recovered revenue of ₹41,27,638, delivering an incremental lift of +52.5% [95% CI: +47.4% to +57.6%] over holdout control with a net strategy ROI of 145.3x. Crucially, zero compliance violations occurred: 42 outbound attempts were deferred during quiet hours, 15 disputed cases were immediately frozen for human accounts reconciliation, and 12 DND opt-outs were strictly respected. Backstop successfully recovered high-probability revenue through cost-aware intervention ranking while fully insulating the merchant against regulatory exposure and customer friction.</div>
   </div>
 
   <!-- Financial Highlights Grid -->
   <div class="financial-grid">
     <div class="kpi-card">
       <div class="kpi-label">Revenue at Risk</div>
-      <div class="kpi-value">₹68,81,334</div>
-      <div class="kpi-sub">320 cases across 4 leak types</div>
+      <div class="kpi-value">₹54,50,000</div>
+      <div class="kpi-sub">321 cases across 4 leak types</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Net Recovered Revenue</div>
-      <div class="kpi-value credit">₹37,46,465</div>
-      <div class="kpi-sub">Net of discounts & outreach costs</div>
+      <div class="kpi-value credit">₹41,27,638</div>
+      <div class="kpi-sub">Net of discounts &amp; outreach costs</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Incremental Lift vs Control</div>
-      <div class="kpi-value credit">+52.2%</div>
-      <div class="kpi-sub">95% CI: [+43.2%, +61.2%] &bull; p &lt; 0.001</div>
+      <div class="kpi-value credit">+52.5%</div>
+      <div class="kpi-sub">95% CI: [+47.4%, +57.6%] &bull; Simulated</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Strategy ROI</div>
-      <div class="kpi-value credit">156.8x</div>
-      <div class="kpi-sub">Total Outreach Cost: ₹7,614</div>
+      <div class="kpi-value credit">145.3x</div>
+      <div class="kpi-sub">Total Outreach Cost: ₹28,405</div>
     </div>
   </div>
 
@@ -385,23 +447,23 @@
   <div class="funnel-container">
     <div class="funnel-step">
       <div class="funnel-step-name">1. Detected</div>
-      <div class="funnel-step-count">320</div>
-      <div class="funnel-step-meta">₹68,81,334 (100.0%)</div>
+      <div class="funnel-step-count">321</div>
+      <div class="funnel-step-meta">₹54,50,000 (100.0%)</div>
     </div>
     <div class="funnel-step">
       <div class="funnel-step-name">2. Contacted</div>
-      <div class="funnel-step-count">311</div>
-      <div class="funnel-step-meta">₹60,55,574 (97.2%)</div>
+      <div class="funnel-step-count">209</div>
+      <div class="funnel-step-meta">₹35,48,442 (65.1%)</div>
     </div>
     <div class="funnel-step">
       <div class="funnel-step-name">3. Promised</div>
-      <div class="funnel-step-count">103</div>
-      <div class="funnel-step-meta">₹24,35,202 (42.0%)</div>
+      <div class="funnel-step-count">137</div>
+      <div class="funnel-step-meta">₹23,26,012 (42.7%)</div>
     </div>
     <div class="funnel-step">
       <div class="funnel-step-name">4. Recovered</div>
-      <div class="funnel-step-count" style="color:var(--credit);">159</div>
-      <div class="funnel-step-meta" style="color:var(--credit);">₹37,46,465 (49.7%)</div>
+      <div class="funnel-step-count" style="color:var(--credit);">129</div>
+      <div class="funnel-step-meta" style="color:var(--credit);">₹41,27,638 (75.7%)</div>
     </div>
   </div>
 
@@ -425,38 +487,38 @@
       
       <tr>
         <td><strong>Failed Card & UPI Payments</strong></td>
-        <td class="td-num">93</td>
+        <td class="td-num">113</td>
         <td><span class="badge-tag">Delayed Retry / Gateway Reroute</span></td>
-        <td class="td-num">₹6,16,049</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">61.3%</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">+46.0%</td>
+        <td class="td-num">₹13,63,326</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">79.7%</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">+56.5%</td>
       </tr>
       
       <tr>
         <td><strong>Abandoned Checkouts</strong></td>
-        <td class="td-num">67</td>
-        <td><span class="badge-tag">WhatsApp Nudge / Discount Link</span></td>
-        <td class="td-num">₹3,36,801</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">65.7%</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">+49.3%</td>
+        <td class="td-num">80</td>
+        <td><span class="badge-tag">WhatsApp Nudge / Discount (Cap 15%)</span></td>
+        <td class="td-num">₹3,88,896</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">65.9%</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">+42.7%</td>
       </tr>
       
       <tr>
         <td><strong>Subscription Mandates (Autopay)</strong></td>
-        <td class="td-num">58</td>
+        <td class="td-num">64</td>
         <td><span class="badge-tag">Pre-Debit Alert / Mandate Retry</span></td>
-        <td class="td-num">₹2,90,275</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">34.5%</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">+25.9%</td>
+        <td class="td-num">₹9,03,920</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">80.7%</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">+57.5%</td>
       </tr>
       
       <tr>
         <td><strong>B2B Invoices & Receivables</strong></td>
-        <td class="td-num">54</td>
+        <td class="td-num">64</td>
         <td><span class="badge-tag">Hinglish Voice / PTP / Recon Task</span></td>
-        <td class="td-num">₹25,07,238</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">70.4%</td>
-        <td class="td-num" style="color:var(--credit); font-weight:600;">+52.8%</td>
+        <td class="td-num">₹14,71,497</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">72.5%</td>
+        <td class="td-num" style="color:var(--credit); font-weight:600;">+49.3%</td>
       </tr>
       
     </tbody>
@@ -464,8 +526,8 @@
 
   <!-- Compliance & Trust Audit -->
   <div class="section-heading">
-    <span>Compliance & Trust Audit Trail</span>
-    <span>Zero Violations &bull; RBI Fair Practices & TRAI DLT Compliant</span>
+    <span>Compliance &amp; Trust Audit Trail</span>
+    <span>Zero Violations &bull; RBI Fair Practices &amp; TRAI DLT Compliant</span>
   </div>
   <div class="audit-grid">
     <div class="audit-card">
@@ -480,7 +542,7 @@
     </div>
     <div class="audit-card">
       <div class="audit-card-title">Disputes Frozen (Recon)</div>
-      <div class="audit-card-num">18 cases</div>
+      <div class="audit-card-num">15 cases</div>
       <div class="audit-card-desc">Outreach frozen; human tasks created</div>
     </div>
     <div class="audit-card">
@@ -490,12 +552,38 @@
     </div>
   </div>
 
+  <!-- Live Operator & Voice Agent Stream -->
+  <div class="section-heading">
+    <span>Recent Live Operator, Policy Lab &amp; Hinglish Voice Agent Events</span>
+    <span>Real-Time Ledger Sync</span>
+  </div>
+  <div class="activity-box">
+    <div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">PolicyLab &bull; POLICY_COMMITTED_LIVE</span> <span class="act-detail">Applied Policy (Retries=4, Cap=15.0%, Floor=₹300, Human=₹45,000). Updated 31 cases.</span></div><div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">RazorpayWebhook &bull; PAYMENT_CAPTURED</span> <span class="act-detail">CASE-20260321 (Suhani Sharma): Paid ₹30,000 via mid-call WhatsApp link!</span></div><div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">HinglishVoiceAgent &bull; VOICE_SEND_LINK</span> <span class="act-detail">CASE-20260321 (Suhani Sharma): RULE_MIDCALL_LINK_SENT -> State: EXECUTING</span></div><div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">HinglishVoiceAgent &bull; VOICE_CALL_STARTED</span> <span class="act-detail">Connected outbound call for CASE-20260321 (Suhani Sharma, ₹30,000).</span></div><div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">LiveIngestion &bull; CASE_INJECTED</span> <span class="act-detail">Injected CASE-20260321 (Suhani Sharma, ₹30,000, failed_payment) -> RECOVERED via retry_delayed.</span></div><div class="activity-row"><span class="act-time">2026-11-02 17:17:15 UTC</span> <span class="act-badge">BackstopEngine &bull; BATCH_INITIALIZED</span> <span class="act-detail">Seed 42 initialized with 320 multi-leak cases and Incident #INC-904 guardrails.</span></div>
+  </div>
+
   <!-- Footer -->
   <div class="report-footer">
-    <div>Backstop Engine v2.4 &bull; Immutable SQLite WAL Ledger &bull; Idempotency-Verified</div>
-    <div>Report Generated: 2026-11-02 16:59:09 UTC &bull; Confirmed RBI Fair Practice Code</div>
+    <div>Backstop Engine v2.5 &bull; Immutable SQLite WAL Ledger &bull; Idempotency-Verified</div>
+    <div>Report Generated: 2026-11-02 17:17:15 UTC &bull; Confirmed RBI Fair Practice Code</div>
   </div>
 </div>
 
+<script>
+async function exportReportJson() {
+  try {
+    const res = await fetch('/api/report_data');
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backstop_live_report_${data.run_id || 'export'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    window.print();
+  }
+}
+</script>
 </body>
 </html>

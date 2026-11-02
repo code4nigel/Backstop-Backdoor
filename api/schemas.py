@@ -1,13 +1,40 @@
 """
 API Validation Schemas and Payload Models for Backstop Operations API:
 Includes:
-1. Pydantic input/output validation contracts for the operations command center.
+1. Pydantic input/output validation contracts for the operations command center (compatible with Pydantic v1 & v2).
 2. Input sanitization and injection defense helpers (protects against SQL injection & XSS).
 """
 import re
 from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel as _PydanticBaseModel, Field
+
+try:
+    from pydantic import ConfigDict
+    HAS_PYDANTIC_V2 = True
+except ImportError:
+    ConfigDict = None
+    HAS_PYDANTIC_V2 = False
+
+
+class BaseModel(_PydanticBaseModel):
+    """Compatibility wrapper supporting both Pydantic v1 and Pydantic v2."""
+    if HAS_PYDANTIC_V2:
+        model_config = ConfigDict(extra="ignore")
+    else:
+        class Config:
+            extra = "ignore"
+
+    @classmethod
+    def model_validate(cls, obj: Any):
+        if hasattr(super(), "model_validate"):
+            return super().model_validate(obj)
+        return cls.parse_obj(obj)
+
+    def model_dump(self, **kwargs) -> Dict[str, Any]:
+        if hasattr(super(), "model_dump"):
+            return super().model_dump(**kwargs)
+        return self.dict(**kwargs)
 
 
 # =====================================================================
@@ -99,7 +126,6 @@ class ActionType(str, Enum):
 # =====================================================================
 
 class LeakMetric(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     leak_type: LeakType
     title: str
     total_at_risk: float
@@ -118,7 +144,6 @@ class ConfidenceInterval(BaseModel):
 
 
 class OverviewResponse(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     total_revenue_at_risk: float
     net_money_recovered: float
     recovery_rate_pct: float
@@ -140,7 +165,6 @@ class OverviewResponse(BaseModel):
 # =====================================================================
 
 class SystemicAlert(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     incident_id: str
     title: str
     severity: str
@@ -219,7 +243,6 @@ class AuditLogEntry(BaseModel):
 
 
 class CaseDetail(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     case_id: str
     customer_id: str
     customer_name: str
@@ -243,7 +266,6 @@ class CaseDetail(BaseModel):
 
 
 class CaseListItem(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     case_id: str
     customer_name: str
     phone_masked: str
@@ -306,7 +328,6 @@ class PolicySimulationResponse(BaseModel):
 # =====================================================================
 
 class HumanQueueItem(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     case_id: str
     customer_name: str
     leak_type: LeakType
@@ -341,7 +362,6 @@ class HumanActionResponse(BaseModel):
 # =====================================================================
 
 class SuppressedCase(BaseModel):
-    model_config = ConfigDict(extra="ignore")
     case_id: str
     customer_name: str
     phone_masked: str

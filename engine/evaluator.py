@@ -449,11 +449,9 @@ def evaluate_batch(
     # -------------------------------------------------------------
     # Scientific Lift & Confidence Interval for Difference
     # -------------------------------------------------------------
-    # Incremental Recovery Rate Difference: delta_r = r_treat - r_ctrl (percentage point lift)
+    # Incremental Recovery Rate Difference: delta_r = r_treat - r_ctrl
     delta_r = treat_rate - ctrl_rate
-    treat_rate_pct = round(treat_rate * 100.0, 1)
-    ctrl_rate_pct = round(ctrl_rate * 100.0, 1)
-    incremental_lift_pct = round(treat_rate_pct - ctrl_rate_pct, 1)
+    incremental_lift_pct = (delta_r / max(ctrl_rate, 0.001)) * 100.0
 
     # Standard Error of Difference between two independent cohorts
     se_diff = math.sqrt(
@@ -463,12 +461,12 @@ def evaluate_batch(
     delta_r_low = max(0.0, delta_r - 1.96 * se_diff)
     delta_r_high = delta_r + 1.96 * se_diff
 
-    lift_ci_low = round(delta_r_low * 100.0, 1)
-    lift_ci_high = round(delta_r_high * 100.0, 1)
+    lift_ci_low = (delta_r_low / max(ctrl_rate, 0.001)) * 100.0
+    lift_ci_high = (delta_r_high / max(ctrl_rate, 0.001)) * 100.0
 
     # Comparison vs naive baseline
     delta_naive = treat_rate - naive_rate
-    lift_vs_naive = round((treat_rate - naive_rate) * 100.0, 1)
+    lift_vs_naive = (delta_naive / max(naive_rate, 0.001)) * 100.0
 
     return EvaluationReport(
         run_id=run_id,

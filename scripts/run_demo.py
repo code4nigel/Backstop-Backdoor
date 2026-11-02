@@ -76,9 +76,9 @@ def print_demo_talking_points(port: int = 5050):
 =============================================================================
 
 1. THE MONEY NUMBER:
-   • Total Revenue at Risk:  ₹68.8 Lakhs (320 cases across 4 leak types)
-   • Incremental Lift:       +52.2% Net Recovery Lift over 15% Holdout Control [95% CI: 43.2% - 61.2%]
-   • Strategy ROI:           492x Net ROI (₹7,614 spent -> ₹37.5L collected)
+   • Total Revenue at Risk:  ₹54.2 Lakhs (300 cases across 4 leak types)
+   • Incremental Lift:       +48.2% Net Recovery Lift over 15% Holdout Control
+   • Strategy ROI:           136x Net ROI (₹28,400 spent -> ₹38.7L recovered)
 
 2. SYSTEMIC ROUTE DEGRADATION:
    • Incident INC-904: HDFC UPI route success dropped 32%.

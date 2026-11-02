@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Backstop — One-Page Executive Recovery Report</title>
+<title>Backstop — Live Executive Recovery Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -45,11 +45,10 @@
     width: 100%;
     max-width: 980px;
     border: 1px solid var(--border);
-    padding: 36px 42px;
+    padding: 32px 40px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.04);
   }
 
-  /* Printable Rules: strict 1-page fit */
   @page {
     size: A4 portrait;
     margin: 10mm 12mm;
@@ -65,14 +64,13 @@
     .no-print { display: none !important; }
   }
 
-  /* Header Section */
   .report-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding-bottom: 16px;
+    padding-bottom: 14px;
     border-bottom: 2px solid var(--border-dark);
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .brand-title {
     font-family: var(--serif);
@@ -112,31 +110,66 @@
     font-size: 13px;
   }
 
-  /* Print Button Bar */
   .toolbar {
     display: flex;
-    justify-content: flex-end;
-    margin-bottom: 12px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: var(--credit-bg);
+    border: 1px solid #B7DFC5;
+    border-radius: 4px;
     gap: 10px;
+  }
+  .live-sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--credit);
+    font-weight: 600;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10B981;
+  }
+  .toolbar-actions {
+    display: flex;
+    gap: 8px;
   }
   .btn-print {
     font-family: var(--mono);
-    font-size: 11.5px;
-    padding: 6px 14px;
+    font-size: 11px;
+    padding: 6px 12px;
     background: var(--ink);
     color: var(--paper);
     border: none;
     cursor: pointer;
     border-radius: 3px;
+    text-decoration: none;
   }
   .btn-print:hover { background: #3E392E; }
+  .btn-secondary {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--border-dark);
+    cursor: pointer;
+    border-radius: 3px;
+    text-decoration: none;
+  }
+  .btn-secondary:hover { background: var(--card-bg); }
 
-  /* Judges Executive Summary */
   .summary-box {
     background: var(--card-bg);
     border-left: 4px solid var(--border-dark);
-    padding: 14px 18px;
-    margin-bottom: 20px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
     border-radius: 0 4px 4px 0;
   }
   .summary-label {
@@ -147,20 +180,21 @@
     color: var(--ink-light);
     letter-spacing: 0.04em;
     margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
   }
   .summary-text {
     font-family: var(--serif);
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 13.5px;
+    line-height: 1.5;
     color: var(--ink);
   }
 
-  /* Financial Highlights Grid */
   .financial-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .kpi-card {
     background: var(--card-bg);
@@ -178,7 +212,7 @@
   }
   .kpi-value {
     font-family: var(--mono);
-    font-size: 21px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--ink);
   }
@@ -190,10 +224,9 @@
     margin-top: 3px;
   }
 
-  /* Section Titles */
   .section-heading {
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 600;
@@ -205,11 +238,10 @@
     justify-content: space-between;
   }
 
-  /* Tables */
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     font-family: var(--sans);
     font-size: 12px;
   }
@@ -219,12 +251,12 @@
     font-size: 10px;
     text-transform: uppercase;
     color: var(--ink-light);
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-bottom: 1.5px solid var(--border-dark);
     background: var(--card-bg);
   }
   td {
-    padding: 8px 10px;
+    padding: 7px 10px;
     border-bottom: 1px solid var(--border);
     color: var(--ink);
   }
@@ -244,17 +276,16 @@
     border: 1px solid #D5CEBD;
   }
 
-  /* Funnel Progression Bar */
   .funnel-container {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .funnel-step {
     border: 1px solid var(--border);
     background: var(--card-bg);
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 3px;
     position: relative;
   }
@@ -277,17 +308,16 @@
     color: var(--ink-light);
   }
 
-  /* Compliance & Trust Audit Grid */
   .audit-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 18px;
+    margin-bottom: 16px;
   }
   .audit-card {
     border: 1px solid var(--border);
     background: var(--card-bg);
-    padding: 10px 12px;
+    padding: 9px 12px;
     border-radius: 3px;
   }
   .audit-card-title {
@@ -299,7 +329,7 @@
   }
   .audit-card-num {
     font-family: var(--mono);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--info);
   }
@@ -310,7 +340,27 @@
     margin-top: 2px;
   }
 
-  /* Footer */
+  .activity-box {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    padding: 10px 14px;
+    border-radius: 3px;
+    margin-bottom: 14px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+  }
+  .activity-row {
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .activity-row:last-child { border-bottom: none; }
+  .act-time { color: var(--ink-light); font-size: 9.5px; white-space: nowrap; }
+  .act-badge { background: #EFECE1; border: 1px solid #D5CEBD; padding: 1px 6px; border-radius: 2px; font-weight: 600; font-size: 9.5px; white-space: nowrap; }
+  .act-detail { color: var(--ink); }
+
   .report-footer {
     padding-top: 10px;
     border-top: 1px solid var(--border);
@@ -326,9 +376,18 @@
 <body>
 
 <div class="page-container">
-  <!-- Toolbar (hidden on print) -->
+  <!-- Interactive Live Sync Toolbar (hidden on print) -->
   <div class="toolbar no-print">
-    <button class="btn-print" onclick="window.print()">Print Report / Save as PDF</button>
+    <div class="live-sync-indicator">
+      <div class="live-dot"></div>
+      <span>LIVE DYNAMIC REPORT &bull; SYNCED WITH COMMAND CENTER, POLICY LAB &amp; VOICE CALLS</span>
+    </div>
+    <div class="toolbar-actions">
+      <a href="/" class="btn-secondary">&larr; Back to Command Center</a>
+      <button class="btn-secondary" onclick="window.location.reload()">&#x21bb; Refresh Live Data</button>
+      <button class="btn-secondary" onclick="exportReportJson()">Download JSON Audit</button>
+      <button class="btn-print" onclick="window.print()">Print Report / Save as PDF</button>
+    </div>
   </div>
 
   <!-- Header -->
@@ -349,7 +408,10 @@
 
   <!-- Executive Summary -->
   <div class="summary-box">
-    <div class="summary-label">Judges' Executive Summary</div>
+    <div class="summary-label">
+      <span>Judges' Executive Summary</span>
+      <span>Active Policy: Max Retries={{ policy_retry_limit }} | Discount Cap={{ policy_discount_cap }} | Floor={{ policy_min_val }} | Human Floor={{ policy_human_thr }}</span>
+    </div>
     <div class="summary-text">{{ executive_summary }}</div>
   </div>
 
@@ -363,12 +425,12 @@
     <div class="kpi-card">
       <div class="kpi-label">Net Recovered Revenue</div>
       <div class="kpi-value credit">{{ net_recovered_revenue }}</div>
-      <div class="kpi-sub">Net of discounts & outreach costs</div>
+      <div class="kpi-sub">Net of discounts &amp; outreach costs</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Incremental Lift vs Control</div>
       <div class="kpi-value credit">{{ incremental_lift_pct }}</div>
-      <div class="kpi-sub">95% CI: {{ confidence_interval }} &bull; p &lt; 0.001</div>
+      <div class="kpi-sub">95% CI: {{ confidence_interval }} &bull; Simulated</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Strategy ROI</div>
@@ -438,7 +500,7 @@
   <!-- Compliance & Trust Audit -->
   <div class="section-heading">
     <span>Compliance & Trust Audit Trail</span>
-    <span>Zero Violations &bull; RBI Fair Practices & TRAI DLT Compliant</span>
+    <span>Zero Violations &bull; RBI Fair Practices &amp; TRAI DLT Compliant</span>
   </div>
   <div class="audit-grid">
     <div class="audit-card">
@@ -463,12 +525,38 @@
     </div>
   </div>
 
+  <!-- Live Operator & Voice Agent Stream -->
+  <div class="section-heading">
+    <span>Recent Live Operator, Policy Lab &amp; Hinglish Voice Agent Events</span>
+    <span>Real-Time Ledger Sync</span>
+  </div>
+  <div class="activity-box">
+    {{ live_activity_rows }}
+  </div>
+
   <!-- Footer -->
   <div class="report-footer">
-    <div>Backstop Engine v2.4 &bull; Immutable SQLite WAL Ledger &bull; Idempotency-Verified</div>
+    <div>Backstop Engine v2.5 &bull; Immutable SQLite WAL Ledger &bull; Idempotency-Verified</div>
     <div>Report Generated: {{ report_timestamp }} &bull; Confirmed RBI Fair Practice Code</div>
   </div>
 </div>
 
+<script>
+async function exportReportJson() {
+  try {
+    const res = await fetch('/api/report_data');
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backstop_live_report_${data.run_id || 'export'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    window.print();
+  }
+}
+</script>
 </body>
 </html>

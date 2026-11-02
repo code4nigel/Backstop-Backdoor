@@ -1,6 +1,6 @@
 {
   "run_id": "demo_run_20261102",
-  "timestamp": 1793638749.7453253,
+  "timestamp": 1793639745.4327128,
   "total_cases": 320,
   "total_revenue_at_risk": 6881334.38,
   "holdout_control_count": 48,
@@ -98,11 +98,11 @@
       0.6415
     ]
   },
-  "lift_vs_control_pct": 52.3,
-  "lift_vs_naive_pct": 39.0,
+  "lift_vs_control_pct": 835.29,
+  "lift_vs_naive_pct": 200.0,
   "confidence_interval_95": {
-    "lower_pct": 43.2,
-    "upper_pct": 61.2,
+    "lower_pct": 691.1,
+    "upper_pct": 979.5,
     "rate_difference_pct": 52.2,
     "standard_error": 0.046,
     "confidence_level": 0.95

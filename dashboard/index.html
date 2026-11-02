@@ -5,241 +5,509 @@
   <title>Backstop — Enterprise Revenue Recovery Command Center</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Operations Command Center and Policy Lab for Backstop AI Revenue Recovery Agent">
-  <!-- Chart.js 4.4 CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-  <!-- Stylesheet -->
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
   <!-- ================================================================= -->
-  <!-- SIDEBAR NAVIGATION -->
+  <!-- LEFT SIDEBAR (CLEAN, ZERO SCROLLBAR, MONOCHROME SVG ICONS) -->
   <!-- ================================================================= -->
-  <aside class="app-sidebar">
-    <div class="sidebar-header">
-      <div class="brand-badge">SYNTHETIC DEMO</div>
-      <div class="brand-title">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <aside class="app-sidebar" aria-label="Primary navigation">
+    <a href="#section-command-center" class="sidebar-brand">
+      <div class="sidebar-brand-mark">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        BACKSTOP
       </div>
-      <div class="brand-subtitle">Revenue recovery operations</div>
-    </div>
+      <span>BACKSTOP</span>
+    </a>
 
+    <div class="nav-group-label">Operations</div>
     <nav class="sidebar-nav">
-      <div class="nav-section-title">Operations</div>
-      <a href="#section-command-center" class="nav-link active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Command Center
+      <a href="#section-command-center" class="nav-link active" id="nav-overview" onclick="setActiveNav(this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Overview</span>
       </a>
-      <a href="#section-policy-lab" class="nav-link">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        The Policy Lab
+      <a href="#section-active-cases" class="nav-link" id="nav-cases" onclick="setActiveNav(this); switchTab('cases')">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Cases</span>
+        <span class="nav-counter" id="sidebar-active-counter">320</span>
       </a>
-      <a href="#section-active-cases" class="nav-link" onclick="switchTab('cases')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Active Cases
-        <span class="nav-counter">320</span>
+      <a href="#section-policy-lab" class="nav-link" id="nav-policy" onclick="setActiveNav(this)">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Policy Lab</span>
       </a>
-
-      <div class="nav-section-title" style="margin-top:10px;">Escalation & Safety</div>
-      <a href="#section-active-cases" class="nav-link" onclick="switchTab('human_queue')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Human Review Queue
+      <a href="#section-active-cases" class="nav-link" id="nav-reviews" onclick="setActiveNav(this); switchTab('human_queue')">
+        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Reviews</span>
         <span class="nav-counter alert-counter" id="sidebar-hq-counter">12</span>
       </a>
-      <a href="#section-active-cases" class="nav-link" onclick="switchTab('suppressed')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        Cases NOT Chased
-        <span class="nav-counter">64</span>
+      <a href="#section-active-cases" class="nav-link" id="nav-suppressed" onclick="setActiveNav(this); switchTab('suppressed')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <span>Protected</span>
+        <span class="nav-counter" id="sidebar-supp-counter">64</span>
       </a>
 
-      <div class="nav-section-title" style="margin-top:10px;">Interactive Demos</div>
-      <a href="/voice" target="_blank" class="nav-link" style="color:#0284C7; font-weight:600;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-        🎙️ Voice Simulator ↗
+      <div class="nav-group-label" style="margin-top:8px;">Live Channels</div>
+      <a href="/voice" target="_blank" class="nav-link">
+        <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <span>Voice Studio</span>
+        <span class="nav-counter" style="color:var(--indigo); background:var(--indigo-soft);">Mic</span>
       </a>
-      <a href="/report" target="_blank" class="nav-link" style="color:#16A34A; font-weight:600;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Recovery report ↗
+      <a href="/report" target="_blank" class="nav-link">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        <span>Executive Report</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="engine-status-pill">
-        <div class="status-dot-pulse"></div>
-        <span>SIMULATED LEDGER</span>
+      <div class="env-badge">
+        <span class="env-dot"></span>
+        <span>Synthetic demo</span>
       </div>
-      <div style="font-size:10.5px; color:#64748B; margin-top:4px;">SEED 42 · DEMO ENVIRONMENT</div>
+      <div class="env-title">Seed 42 · Live Engine</div>
+      <div class="env-desc">All metrics dynamically reflect batch runs, policies &amp; voice actions.</div>
     </div>
   </aside>
 
   <!-- ================================================================= -->
-  <!-- MAIN APPLICATION VIEW -->
+  <!-- MAIN APPLICATION AREA -->
   <!-- ================================================================= -->
   <main class="app-main">
 
-    <!-- Topbar -->
+    <!-- Topbar (Global Search + Unified Action Group) -->
     <header class="app-topbar">
-      <div class="topbar-breadcrumbs">
-        <span class="breadcrumb-root">Operations</span>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-curr">Revenue Recovery Command Center</span>
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="global-topbar-search" placeholder="Search cases, customers, decline codes or routes..." aria-label="Search cases">
       </div>
+
       <div class="topbar-actions">
-        <button class="btn btn-primary btn-sm" id="btn-run-batch" onclick="runDemoBatch()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 14px; background:#2563EB; color:#fff; border:none; border-radius:4px; cursor:pointer;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Run Demo Batch
+        <button class="btn btn-primary" id="btn-run-live-batch" onclick="runLiveBatchStream()">
+          <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/></svg>
+          <span>Run Live Batch</span>
         </button>
-        <button class="btn btn-outline btn-sm" onclick="loadOverview(); loadCases(); loadSystemicAlerts(); showToast('Refreshed live ledger metrics');" title="Reload live data">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          Refresh
+        <button class="btn btn-secondary" onclick="openInjectModal()">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>New Transaction</span>
         </button>
-        <a href="/voice" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:4px; color:var(--text-main); border:1px solid var(--border-strong);">
-          Voice Simulator ↗
+        <a href="/voice" target="_blank" class="btn btn-outline">
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+          <span>Voice Studio</span>
         </a>
-        <a href="/report" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:4px; color:var(--text-main); border:1px solid var(--border-strong);">
-          Executive Report ↗
+        <a href="/report" target="_blank" class="btn btn-outline">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Live Report</span>
         </a>
-        <span class="badge-pill" style="background:#F1F5F9; border:1px solid #CBD5E1; color:#475569; font-size:11px; padding:4px 9px;">
-          SIMULATED HOLDOUT BENCHMARK • SYNTHETIC DATA
-        </span>
         <button class="btn-icon" id="theme-toggle-btn" title="Toggle colour theme" aria-label="Toggle colour theme">◐</button>
+        <button class="btn-icon" title="Refresh live metrics" onclick="loadOverview(); loadCases(); loadHumanQueue(); loadSuppressedCases(); loadSystemicAlerts(); showToast('Synced live ledger metrics');">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
       </div>
     </header>
 
     <div class="content-container">
 
-      <!-- ============================================================= -->
-      <!-- SECTION 2: SYSTEMIC DEGRADATION ALERT BANNER -->
-      <!-- ============================================================= -->
-      <div id="systemic-alert-wrapper"></div>
-
-      <!-- ============================================================= -->
-      <!-- SECTION 1: REVENUE-AT-RISK COMMAND CENTER -->
-      <!-- ============================================================= -->
-      <section id="section-command-center">
-        <div class="section-header">
-          <div>
-            <h1 class="section-title">Revenue recovery, safely prioritized</h1>
-            <p class="section-desc">Seeded batch evaluated against 15% stratified holdout control with full policy & safety verification.</p>
+      <!-- Live Batch Execution Progress Banner -->
+      <div id="live-batch-banner" style="display:none; background:var(--indigo-soft); border:1px solid var(--indigo-border); border-radius:var(--radius-md); padding:12px 18px; margin-bottom:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <div style="font-weight:600; color:var(--indigo); font-size:13px;" id="live-batch-status-title">
+            Executing Live Multi-Leak Recovery Batch...
           </div>
-          <span class="badge-pill" style="background:#EFF6FF; border:1px solid #BFDBFE; color:#1D4ED8;">
-            Simulated evaluation result
-          </span>
+          <span class="num-font" style="font-weight:700; color:var(--indigo); font-size:12.5px;" id="live-batch-pct">0%</span>
         </div>
-
-        <!-- Headline Metrics Bar (3 Cards) -->
-        <div class="headline-grid">
-          <div class="metric-card">
-            <div class="metric-label-row">
-              <span class="metric-label">Total Revenue at Risk</span>
-            </div>
-            <div class="metric-value num-font" id="metric-total-risk">₹68.8L</div>
-            <div class="metric-caption">
-              Across <span id="metric-active-count">320</span> active cases in evaluated batch
-            </div>
-          </div>
-
-          <div class="metric-card accent-card">
-            <div class="metric-label-row">
-              <span class="metric-label">Incremental Lift vs Control</span>
-            </div>
-            <div class="metric-value num-font val-blue" id="metric-lift">+52.2%</div>
-            <div class="metric-caption">
-              <span class="lift-pill num-font" id="metric-ci">[95% CI: 43.2% – 61.2%]</span> · <span id="metric-total-rec" style="font-weight:600; color:#10B981;">₹37.5L</span> net recovered
-            </div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-label-row">
-              <span class="metric-label">Recovery Efficiency & Safety</span>
-            </div>
-            <div class="metric-value num-font" id="metric-cost-roi" style="font-size:26px;">₹7,614 → 492x ROI</div>
-            <div class="metric-caption">
-              Discounts capped at 10% · <span id="metric-suppressed-count">57</span> cases held by safety rules
-            </div>
-          </div>
+        <div class="progress-track" style="height:6px; background:rgba(41,71,184,0.12); margin-bottom:6px;">
+          <div class="progress-fill" id="live-batch-bar" style="width:0%; background:var(--indigo);"></div>
         </div>
-
-        <!-- 4 Leak Category Cards -->
-        <div class="leak-cards-grid" id="leak-cards-container">
-          <!-- Populated by loadOverview() -->
+        <div style="font-size:11.5px; color:var(--muted);" id="live-batch-detail">
+          Ingesting events, running ML root-cause diagnosis, ranking Net EV interventions, and enforcing RBI/TRAI compliance gates...
         </div>
+      </div>
 
-        <!-- Dual Chart Row -->
-        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:36px; box-shadow:var(--shadow-sm);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <!-- ============================================================= -->
+      <!-- SECTION 1: 2-COLUMN COMMAND CENTER (MATCHES REFERENCE PNG) -->
+      <!-- ============================================================= -->
+      <div class="overview-grid" id="section-command-center">
+
+        <!-- Left Main Column -->
+        <div>
+          <div class="page-title-row">
             <div>
-              <div style="font-size:15px; font-weight:700; color:var(--text-main);">Multi-Leak Breakdown: At-Risk vs Recovered</div>
-              <div style="font-size:12px; color:var(--text-muted);">Comparing baseline at-risk volume against autonomous recovery per revenue leak type</div>
+              <h1 class="section-title">Revenue recovery, safely prioritized</h1>
+              <p class="section-desc">Detect payment revenue leaks, take the next safe action, and recover value without increasing customer or compliance risk.</p>
             </div>
-            <span class="leak-badge">Seeded evaluation</span>
           </div>
-          <div class="chart-wrapper" style="height:260px;">
-            <canvas id="leakChart"></canvas>
+
+          <!-- Compact 1-Line Active Incident Strip -->
+          <div id="systemic-alert-wrapper"></div>
+
+          <!-- 3 Top KPI Cards with Smooth Inline SVG Sparklines -->
+          <div class="headline-grid">
+            <article class="metric-card">
+              <div class="metric-top-row">
+                <span class="metric-label">Revenue at risk</span>
+                <span class="leak-badge" id="metric-cases-badge">320 cases</span>
+              </div>
+              <div class="metric-mid-row">
+                <div class="metric-value num-font" id="metric-total-risk">₹54.20L</div>
+                <svg class="metric-sparkline" viewBox="0 0 80 32" fill="none">
+                  <path d="M2 24 L15 19 L28 22 L42 12 L55 16 L68 7 L78 10 L78 30 L2 30 Z" fill="rgba(180, 35, 24, 0.08)"/>
+                  <polyline points="2,24 15,19 28,22 42,12 55,16 68,7 78,10" fill="none" stroke="#B42318" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="metric-caption" id="metric-cases-caption">
+                <span class="delta-risk">↗ Active batch</span> · 4 leak categories monitored
+              </div>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-top-row">
+                <span class="metric-label">Incremental net recovery</span>
+                <span class="leak-badge" id="metric-roi-badge" style="color:var(--green); background:var(--green-soft);">136.3x ROI</span>
+              </div>
+              <div class="metric-mid-row">
+                <div class="metric-value num-font" id="metric-total-rec">₹38.70L</div>
+                <svg class="metric-sparkline" viewBox="0 0 80 32" fill="none">
+                  <path d="M2 26 L16 22 L30 23 L44 15 L58 17 L70 8 L78 5 L78 30 L2 30 Z" fill="rgba(8, 122, 86, 0.09)"/>
+                  <polyline points="2,26 16,22 30,23 44,15 58,17 70,8 78,5" fill="none" stroke="#087A56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="metric-caption">
+                <span class="delta-up" id="metric-lift">↑ +48.2%</span> vs. control <span class="num-font" id="metric-ci" style="color:var(--subtle);">[43.1%–53.3%]</span>
+              </div>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-top-row">
+                <span class="metric-label">Policy-protected cases</span>
+                <span class="leak-badge" id="metric-cost-roi">₹28,400 cost</span>
+              </div>
+              <div class="metric-mid-row">
+                <div class="metric-value num-font" id="metric-protected-count">64</div>
+                <svg class="metric-sparkline" viewBox="0 0 80 32" fill="none">
+                  <path d="M2 25 L18 20 L32 22 L46 14 L60 15 L72 9 L78 7 L78 30 L2 30 Z" fill="rgba(41, 71, 184, 0.09)"/>
+                  <polyline points="2,25 18,20 32,22 46,14 60,15 72,9 78,7" fill="none" stroke="#2947B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="metric-caption">
+                <span class="delta-up">✓ Zero DND/quiet violations</span> · ₹18.4K saved
+              </div>
+            </article>
           </div>
+
+          <!-- 4 Leak Category Cards -->
+          <div class="leak-cards-grid" id="leak-cards-container"></div>
+
+          <!-- Priority Cases / Tabbed Explorer Card -->
+          <section class="panel-card" id="section-active-cases">
+            <div class="main-tabs-nav">
+              <button class="tab-btn active" data-tab="cases">
+                <span>Priority Cases</span>
+                <span class="tab-counter" id="cases-tab-counter">320</span>
+              </button>
+              <button class="tab-btn" data-tab="human_queue">
+                <span>Human Review Queue</span>
+                <span class="tab-counter" id="hq-tab-counter">12</span>
+              </button>
+              <button class="tab-btn" data-tab="suppressed">
+                <span>Protected by Policy (Not Chased)</span>
+                <span class="tab-counter" id="suppressed-tab-counter">64</span>
+              </button>
+            </div>
+
+            <!-- Tab 1: Priority Cases Table -->
+            <div class="tab-content-panel active" id="tab-panel-cases">
+              <div class="table-toolbar">
+                <div class="search-input-wrapper">
+                  <span class="search-icon-pos">⌕</span>
+                  <input type="text" class="search-input" id="search-cases-input" placeholder="Filter by customer, case ID, or phone...">
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <select class="filter-select" id="filter-leak-type">
+                    <option value="">All Leak Types</option>
+                    <option value="failed_payment">Failed Payments</option>
+                    <option value="abandoned_checkout">Abandoned Checkouts</option>
+                    <option value="subscription_mandate">Subscription Mandates</option>
+                    <option value="b2b_invoice">B2B Invoices</option>
+                  </select>
+
+                  <select class="filter-select" id="filter-state">
+                    <option value="">All States</option>
+                    <option value="RECOVERED">Recovered</option>
+                    <option value="EXECUTING">Executing</option>
+                    <option value="PROMISED">Promised to Pay</option>
+                    <option value="DISPUTED">Needs Review (Disputed)</option>
+                    <option value="POLICY_BLOCKED">Blocked by Policy</option>
+                    <option value="READY">Ready</option>
+                  </select>
+
+                  <select class="filter-select" id="filter-control">
+                    <option value="">All Cohorts</option>
+                    <option value="false">Treated Cohort</option>
+                    <option value="true">Holdout Control (15%)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="fintech-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Customer</th>
+                      <th>Leak Type</th>
+                      <th>Next Safe Action / Cause</th>
+                      <th>Amount</th>
+                      <th>Net Expected Value</th>
+                      <th>Policy Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cases-table-body"></tbody>
+                </table>
+              </div>
+
+              <div class="pagination-bar">
+                <span class="page-info" id="pagination-info">Showing page 1</span>
+                <div class="page-controls">
+                  <button class="btn btn-outline btn-sm" id="btn-prev-page">Previous</button>
+                  <button class="btn btn-outline btn-sm" id="btn-next-page">Next</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 2: Human Review Queue -->
+            <div class="tab-content-panel" id="tab-panel-human_queue">
+              <div style="padding:12px 20px; border-bottom:1px solid var(--line); background:var(--canvas); display:flex; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted);">
+                <span>Cases escalated for reviewer sign-off: high ticket value (≥ ₹50K), active invoice dispute, or sub-85% diagnosis confidence.</span>
+                <span class="badge-pill badge-state-disputed">Reviewer queue</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="fintech-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Customer &amp; Amount</th>
+                      <th>Urgency</th>
+                      <th>Escalation Reason</th>
+                      <th>Recommended Action</th>
+                      <th>Decision</th>
+                    </tr>
+                  </thead>
+                  <tbody id="human-queue-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tab 3: Protected by Policy (Suppressed Cases) -->
+            <div class="tab-content-panel" id="tab-panel-suppressed">
+              <div style="padding:14px 20px; border-bottom:1px solid var(--line); background:var(--green-soft);" id="suppressed-summary-bar"></div>
+              <div style="overflow-x:auto;">
+                <table class="fintech-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Customer</th>
+                      <th>Leak Type</th>
+                      <th>Amount</th>
+                      <th>Stopping Rule Fired</th>
+                      <th>Preserved Goodwill</th>
+                    </tr>
+                  </thead>
+                  <tbody id="suppressed-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+
+        <!-- Right Operational Signals Rail (Matches Reference PNG) -->
+        <aside class="signals-aside" aria-label="Operational signals">
+
+          <!-- Signal Card 1: Today's Signal (Route Health) -->
+          <section class="signal-card">
+            <div class="signal-header">
+              <h2 class="signal-title">Today's signal</h2>
+              <button class="link-btn" onclick="filterByLeakCard('failed_payment')">View route cases →</button>
+            </div>
+            <p class="signal-subtitle">Route health (rolling success rate)</p>
+
+            <div class="route-list">
+              <div class="route-row">
+                <span class="route-label"><span class="route-line-indicator" style="background:#2947B8;"></span>HDFC UPI</span>
+                <strong class="num-font" style="color:var(--red);">54.4%</strong>
+              </div>
+              <div class="route-row">
+                <span class="route-label"><span class="route-line-indicator" style="background:#7FA1E8;"></span>ICICI UPI</span>
+                <strong class="num-font">94.2%</strong>
+              </div>
+              <div class="route-row">
+                <span class="route-label"><span class="route-line-indicator" style="background:#CBD5E1;"></span>Axis UPI</span>
+                <strong class="num-font">91.0%</strong>
+              </div>
+            </div>
+
+            <div class="route-spark-box">
+              <div class="route-callout-tag">
+                <span style="width:6px; height:6px; border-radius:50%; background:#DF9600;"></span>
+                <span>HDFC UPI degradation</span>
+              </div>
+              <svg viewBox="0 0 260 95" width="100%" height="88" preserveAspectRatio="none">
+                <!-- ICICI & Axis healthy baselines -->
+                <polyline points="0,18 30,16 60,19 90,15 120,18 150,16 180,14 210,17 240,15 260,14" fill="none" stroke="#7FA1E8" stroke-width="1.6"/>
+                <polyline points="0,24 30,22 60,25 90,23 120,26 150,22 180,24 210,21 240,23 260,20" fill="none" stroke="#CBD5E1" stroke-width="1.5"/>
+                <!-- HDFC UPI drop -->
+                <polyline points="0,22 30,24 60,21 90,32 120,76 145,54 175,58 205,48 235,51 260,44" fill="none" stroke="#2947B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                <!-- Vertical incident marker -->
+                <line x1="120" y1="4" x2="120" y2="92" stroke="#DF9600" stroke-width="1.2" stroke-dasharray="3 3"/>
+              </svg>
+              <div class="spark-axis">
+                <span>00:00</span>
+                <span>06:00</span>
+                <span>12:00</span>
+                <span>18:00</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Signal Card 2: Review Queue Summary -->
+          <section class="signal-card">
+            <div class="signal-header">
+              <h2 class="signal-title">Review queue</h2>
+              <button class="link-btn" onclick="switchTab('human_queue'); document.getElementById('section-active-cases').scrollIntoView({behavior:'smooth'});">View queue →</button>
+            </div>
+
+            <div class="queue-big-row">
+              <div>
+                <div class="queue-big-num" id="aside-hq-total">12</div>
+                <div style="font-size:12px; color:var(--muted); margin-top:4px;">cases awaiting human review</div>
+              </div>
+              <svg width="86" height="40" viewBox="0 0 86 40">
+                <rect x="2" y="18" width="4" height="20" rx="1" fill="#CBD5E1"/>
+                <rect x="10" y="10" width="4" height="28" rx="1" fill="#94A3B8"/>
+                <rect x="18" y="22" width="4" height="16" rx="1" fill="#CBD5E1"/>
+                <rect x="26" y="14" width="4" height="24" rx="1" fill="#94A3B8"/>
+                <rect x="34" y="24" width="4" height="14" rx="1" fill="#CBD5E1"/>
+                <rect x="42" y="6" width="4" height="32" rx="1" fill="#2947B8"/>
+                <rect x="50" y="16" width="4" height="22" rx="1" fill="#94A3B8"/>
+                <rect x="58" y="12" width="4" height="26" rx="1" fill="#94A3B8"/>
+                <rect x="66" y="20" width="4" height="18" rx="1" fill="#CBD5E1"/>
+                <rect x="74" y="8" width="4" height="30" rx="1" fill="#2947B8"/>
+              </svg>
+            </div>
+
+            <div class="queue-breakdown-list">
+              <div class="queue-item-row">
+                <strong id="aside-hq-dispute">6</strong>
+                <span>Invoice dispute / freeze</span>
+                <span class="q-sla">&lt; 1h</span>
+              </div>
+              <div class="queue-item-row">
+                <strong id="aside-hq-highval">4</strong>
+                <span>High value (≥ ₹50K)</span>
+                <span class="q-sla">1–4h</span>
+              </div>
+              <div class="queue-item-row">
+                <strong id="aside-hq-lowconf">2</strong>
+                <span>Low confidence (&lt; 85%)</span>
+                <span class="q-sla">1–4h</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Signal Card 3: Multi-Leak Breakdown Chart -->
+          <section class="signal-card">
+            <div class="signal-header">
+              <h2 class="signal-title">Recovery by leak</h2>
+              <span class="leak-badge">₹ Lakhs</span>
+            </div>
+            <p class="signal-subtitle">At-risk vs. net recovered volume</p>
+            <div style="height:175px; position:relative;">
+              <canvas id="leakChart"></canvas>
+            </div>
+          </section>
+
+        </aside>
+      </div>
 
       <!-- ============================================================= -->
-      <!-- SECTION 3: THE POLICY LAB (INTERACTIVE SLIDERS) -->
+      <!-- SECTION 2: THE POLICY LAB (INTERACTIVE SLIDERS) -->
       <!-- ============================================================= -->
       <section id="section-policy-lab" class="policy-lab-panel">
         <div class="policy-lab-top">
           <div>
             <div class="policy-lab-badge">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Policy scenario explorer
+              <span>Interactive Policy Lab</span>
             </div>
-            <h2 style="font-family:var(--font-display); font-size:18px; font-weight:700; color:var(--text-main); margin-top:6px;">
-              Policy Lab: Scenario Explorer
+            <h2 style="font-size:19px; font-weight:700; letter-spacing:-0.025em; color:var(--ink); margin-top:6px;">
+              Policy Lab: Scenario &amp; Guardrail Simulator
             </h2>
-            <p style="font-size:12.5px; color:var(--text-muted);">
-              Adjust strategic operating levers live. Watch trade-offs between recovery yield, outreach costs, customer friction, and compliance recalculate instantly.
+            <p style="font-size:13px; color:var(--muted); margin-top:2px;">
+              Adjust operating guardrails to test sensitivity, then click <strong>Apply Policy to Live Engine</strong> to commit changes across all cases and the Executive Report.
             </p>
           </div>
           <div class="preset-pills">
             <button class="preset-btn active" onclick="applyPolicyPreset('balanced')">Balanced Fintech</button>
             <button class="preset-btn" onclick="applyPolicyPreset('aggressive')">Aggressive Growth</button>
             <button class="preset-btn" onclick="applyPolicyPreset('compliance')">Strict Compliance</button>
+            <button class="btn btn-primary btn-sm" onclick="commitPolicyToLiveEngine()" style="margin-left:4px;">
+              ✓ Apply Policy to Live Engine
+            </button>
           </div>
         </div>
 
         <div class="policy-grid">
-          <!-- Sliders Column -->
           <div class="sliders-col">
-            <!-- 1. Max Retry Limit -->
             <div class="slider-group">
               <div class="slider-label-row">
                 <div>
                   <div class="slider-title">Max Retry Limit</div>
-                  <div class="slider-desc">Network & UPI retry ceiling before write-off</div>
+                  <div class="slider-desc">Card &amp; UPI retry cap</div>
                 </div>
                 <span class="slider-value-badge num-font" id="val-retry">3 attempts</span>
               </div>
               <input type="range" min="1" max="5" value="3" class="range-slider" id="slider-retry">
             </div>
 
-            <!-- 2. Max Discount Cap -->
             <div class="slider-group">
               <div class="slider-label-row">
                 <div>
                   <div class="slider-title">Max Discount Cap</div>
-                  <div class="slider-desc">Ceiling on abandoned cart incentive incentives</div>
+                  <div class="slider-desc">Cart incentive margin cap</div>
                 </div>
                 <span class="slider-value-badge num-font" id="val-discount">10%</span>
               </div>
               <input type="range" min="0" max="20" value="10" step="1" class="range-slider" id="slider-discount">
             </div>
 
-            <!-- 3. Quiet Hours Toggle -->
             <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Minimum Case Value</div>
+                  <div class="slider-desc">Skip micro-cases below floor</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-min-val">₹200</span>
+              </div>
+              <input type="range" min="0" max="1000" value="200" step="50" class="range-slider" id="slider-min-val">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Human Review Floor</div>
+                  <div class="slider-desc">Escalate tickets above amount</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-human-thr">₹50,000</span>
+              </div>
+              <input type="range" min="10000" max="100000" value="50000" step="5000" class="range-slider" id="slider-human-thr">
+            </div>
+
+            <div class="slider-group full-span">
               <div class="toggle-row">
                 <div>
-                  <div class="slider-title">Quiet Hours Enforcement</div>
-                  <div class="slider-desc">Blocks customer outreach between 8:00 PM – 8:00 AM</div>
+                  <div class="slider-title">RBI Quiet Hours Window (8:00 PM – 8:00 AM IST)</div>
+                  <div class="slider-desc">Automatically defer outbound voice and WhatsApp nudges outside permitted hours</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="slider-value-badge" id="val-quiet-hours">Enforced</span>
@@ -250,51 +518,30 @@
                 </div>
               </div>
             </div>
-
-            <!-- 4. Minimum Case Value -->
-            <div class="slider-group">
-              <div class="slider-label-row">
-                <div>
-                  <div class="slider-title">Minimum Case Value to Chase</div>
-                  <div class="slider-desc">Prunes low-margin micro-transactions below cost floor</div>
-                </div>
-                <span class="slider-value-badge num-font" id="val-min-val">₹200</span>
-              </div>
-              <input type="range" min="0" max="1000" value="200" step="50" class="range-slider" id="slider-min-val">
-            </div>
-
-            <!-- 5. Human Review Threshold -->
-            <div class="slider-group">
-              <div class="slider-label-row">
-                <div>
-                  <div class="slider-title">Human Review Floor</div>
-                  <div class="slider-desc">High-value tickets automatically routed to compliance escrow</div>
-                </div>
-                <span class="slider-value-badge num-font" id="val-human-thr">₹50,000</span>
-              </div>
-              <input type="range" min="10000" max="100000" value="50000" step="5000" class="range-slider" id="slider-human-thr">
-            </div>
           </div>
 
-          <!-- Trade-Off Radar & Impact Column -->
           <div class="tradeoff-col">
             <div class="tradeoff-title-row">
-              <span style="font-size:13.5px; font-weight:700;">Live Trade-Off Sensitivity Profile</span>
-              <span class="lift-pill num-font" id="sim-delta-badge">+0.0% vs baseline</span>
+              <span style="font-size:13px; font-weight:700;">Live Sensitivity Profile</span>
+              <span class="badge-pill badge-state-recovered num-font" id="sim-delta-badge">+0.0% vs baseline</span>
             </div>
 
             <div class="tradeoff-stats-bar">
               <div class="mini-stat-box">
                 <div class="mini-stat-label">Projected Net</div>
-                <div class="mini-stat-val val-emerald num-font" id="sim-projected-rec">₹38.7L</div>
+                <div class="mini-stat-val num-font" style="color:var(--green);" id="sim-projected-rec">₹38.70L</div>
               </div>
               <div class="mini-stat-box">
                 <div class="mini-stat-label">Projected ROI</div>
-                <div class="mini-stat-val val-blue num-font" id="sim-roi">136x</div>
+                <div class="mini-stat-val num-font" style="color:var(--indigo);" id="sim-roi">136x</div>
               </div>
               <div class="mini-stat-box">
                 <div class="mini-stat-label">Policy Blocked</div>
-                <div class="mini-stat-val num-font" id="sim-blocked-cases" style="color:#B91C1C;">8 cases</div>
+                <div class="mini-stat-val num-font" style="color:var(--red);" id="sim-blocked-cases">8 cases</div>
+              </div>
+              <div class="mini-stat-box">
+                <div class="mini-stat-label">Outreach Cost</div>
+                <div class="mini-stat-val num-font" id="sim-cost">₹28,400</div>
               </div>
             </div>
 
@@ -304,153 +551,16 @@
 
             <div class="simulation-note-box" id="sim-notes-container">
               <div>• Active policy balances high recovery with regulatory compliance guardrails.</div>
-              <div>• Outreach is simulated; no customer message is sent.</div>
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- ============================================================= -->
-      <!-- SECTION 4, 5, 6: TABS (CASES, HUMAN QUEUE, SUPPRESSED) -->
-      <!-- ============================================================= -->
-      <section id="section-active-cases">
-        <div class="main-tabs-nav">
-          <button class="tab-btn active" data-tab="cases">
-            Active Cases Explorer
-            <span class="tab-counter">320</span>
-          </button>
-          <button class="tab-btn" data-tab="human_queue">
-            Human Review Queue
-            <span class="tab-counter alert-counter" id="hq-tab-counter">12</span>
-          </button>
-          <button class="tab-btn" data-tab="suppressed">
-            Cases NOT to Chase (Trust Signal)
-            <span class="tab-counter" id="suppressed-tab-counter">64</span>
-          </button>
-        </div>
-
-        <!-- Tab 1: Active Cases Explorer -->
-        <div class="tab-content-panel active" id="tab-panel-cases">
-          <div class="table-toolbar">
-            <div class="search-input-wrapper">
-              <span class="search-icon-pos">🔍</span>
-              <input type="text" class="search-input" id="search-cases-input" placeholder="Search customer, case ID, or phone...">
-            </div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <select class="filter-select" id="filter-leak-type">
-                <option value="">All Leak Types</option>
-                <option value="failed_payment">Failed Payments</option>
-                <option value="abandoned_checkout">Abandoned Checkouts</option>
-                <option value="subscription_mandate">Subscription Mandates</option>
-                <option value="b2b_invoice">B2B Invoices</option>
-              </select>
-
-              <select class="filter-select" id="filter-state">
-                <option value="">All States</option>
-                <option value="RECOVERED">Recovered</option>
-                <option value="EXECUTING">Executing</option>
-                <option value="PROMISED">Promised to Pay</option>
-                <option value="DISPUTED">Disputed</option>
-                <option value="POLICY_BLOCKED">Policy Blocked</option>
-                <option value="READY">Ready</option>
-              </select>
-
-              <select class="filter-select" id="filter-control">
-                <option value="">All Cohorts</option>
-                <option value="false">Treated Cohort</option>
-                <option value="true">Holdout Control Group</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <table class="fintech-table">
-              <thead>
-                <tr>
-                  <th>Case ID</th>
-                  <th>Customer</th>
-                  <th>Leak Type</th>
-                  <th>Amount</th>
-                  <th>Diagnosis</th>
-                  <th>Net EV</th>
-                  <th>State</th>
-                </tr>
-              </thead>
-              <tbody id="cases-table-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
-
-            <div class="pagination-bar">
-              <span class="page-info" id="pagination-info">Showing page 1</span>
-              <div class="page-controls">
-                <button class="btn btn-outline btn-sm" id="btn-prev-page">Previous</button>
-                <button class="btn btn-outline btn-sm" id="btn-next-page">Next</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 2: Human Approval & Dispute Queue -->
-        <div class="tab-content-panel" id="tab-panel-human_queue">
-          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); padding:12px 18px; border-radius:var(--radius-md); margin-bottom:14px; font-size:12.5px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-            <div>
-              <strong>Human review queue:</strong> Simulated cases requiring a reviewer decision: high value, active dispute, low confidence, or discount override.
-            </div>
-            <span class="badge-pill badge-state-disputed">OPERATOR ATTENTION REQUIRED</span>
-          </div>
-
-          <div class="table-container">
-            <table class="fintech-table">
-              <thead>
-                <tr>
-                  <th>Case ID</th>
-                  <th>Customer & Amount</th>
-                  <th>Urgency</th>
-                  <th>Escalation Reason</th>
-                  <th>Recommended Intervention</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="human-queue-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Tab 3: Cases NOT to Chase (Trust Signal) -->
-        <div class="tab-content-panel" id="tab-panel-suppressed">
-          <div class="alert-banner" style="background:linear-gradient(90deg, #ECFDF5 0%, #F0FDF4 100%); border-color:#A7F3D0; border-left:5px solid #10B981; margin-bottom:16px;" id="suppressed-summary-bar">
-            <!-- Loaded dynamically -->
-          </div>
-
-          <div class="table-container">
-            <table class="fintech-table">
-              <thead>
-                <tr>
-                  <th>Case ID</th>
-                  <th>Customer</th>
-                  <th>Leak Type</th>
-                  <th>Amount</th>
-                  <th>Explicit Stopping Rule Fired</th>
-                  <th>Impact & Preserved Goodwill</th>
-                </tr>
-              </thead>
-              <tbody id="suppressed-table-body">
-                <!-- Loaded dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
       </section>
 
     </div>
   </main>
 
   <!-- ================================================================= -->
-  <!-- SECTION 4: CASE DRILL-DOWN MODAL ("WHY DID THE AGENT DO THIS?") -->
+  <!-- CASE DRILL-DOWN MODAL (5-STEP EXPLAINABILITY CHAIN) -->
   <!-- ================================================================= -->
   <div class="modal-backdrop" id="case-modal" onclick="if(event.target === this) closeCaseModal()">
     <div class="drilldown-modal">
@@ -458,73 +568,136 @@
         <div class="modal-title-group">
           <span class="leak-badge num-font" id="modal-case-id">CASE-00000</span>
           <span class="modal-title" id="modal-cust-name">Customer Name</span>
-          <span class="num-font" style="font-size:16px; font-weight:700; color:var(--text-main);" id="modal-amount">₹0</span>
+          <span class="num-font" style="font-size:15px; font-weight:700; color:var(--indigo);" id="modal-amount">₹0</span>
         </div>
         <button class="btn-icon" onclick="closeCaseModal()">✕</button>
       </div>
 
       <div class="modal-body">
-        <div style="font-size:13px; font-weight:600; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-          <span>EXPLAINABILITY & REASONING CHAIN</span>
-          <span style="font-size:11px; font-family:var(--font-mono); color:var(--primary-accent);">WAL AUDIT TRAIL VERIFIED</span>
+        <div style="font-size:11.5px; font-weight:600; color:var(--muted); display:flex; justify-content:space-between; align-items:center;">
+          <span>5-STEP EXPLAINABILITY &amp; REASONING CHAIN</span>
+          <span style="font-family:var(--font-mono); color:var(--indigo);">SIMULATED PROVIDER · WAL VERIFIED</span>
         </div>
 
         <div class="stepper-timeline">
-          <!-- Step 1: Detect -->
           <div class="step-card">
             <div class="step-header">
-              <span class="step-number-tag">STEP 1: DETECT</span>
-              <span style="font-size:11px; color:var(--text-muted);">Event Ingested</span>
+              <span class="step-number-tag">1. DETECT</span>
+              <span style="font-size:11px; color:var(--muted);">At-Risk Event Ingested</span>
             </div>
             <div class="step-content" id="step1-content"></div>
           </div>
 
-          <!-- Step 2: Diagnose -->
           <div class="step-card">
             <div class="step-header">
-              <span class="step-number-tag">STEP 2: DIAGNOSE</span>
-              <span style="font-size:11px; color:var(--text-muted);">Multi-Leak ML Classifier</span>
+              <span class="step-number-tag">2. DIAGNOSE</span>
+              <span style="font-size:11px; color:var(--muted);">Root-Cause Classifier &amp; Evidence</span>
             </div>
             <div class="step-content" id="step2-content"></div>
           </div>
 
-          <!-- Step 3: Decide -->
           <div class="step-card">
             <div class="step-header">
-              <span class="step-number-tag">STEP 3: DECIDE</span>
-              <span style="font-size:11px; color:var(--text-muted);">Cost-Aware Expected Value Ranking</span>
+              <span class="step-number-tag">3. DECIDE</span>
+              <span style="font-size:11px; color:var(--muted);">Cost-Aware Expected Value Ranking</span>
             </div>
             <div class="step-content" id="step3-content"></div>
           </div>
 
-          <!-- Step 4: Policy Check -->
           <div class="step-card">
             <div class="step-header">
-              <span class="step-number-tag">STEP 4: POLICY CHECK</span>
-              <span style="font-size:11px; color:var(--text-muted);">Deterministic Compliance Gates</span>
+              <span class="step-number-tag">4. POLICY GATES</span>
+              <span style="font-size:11px; color:var(--muted);">Deterministic RBI &amp; TRAI Compliance</span>
             </div>
             <div class="step-content" id="step4-content"></div>
           </div>
 
-          <!-- Step 5: Execute -->
           <div class="step-card">
             <div class="step-header">
-              <span class="step-number-tag">STEP 5: EXECUTE</span>
-              <span style="font-size:11px; color:var(--text-muted);">Transactional Outbox Dispatch</span>
+              <span class="step-number-tag">5. EXECUTE</span>
+              <span style="font-size:11px; color:var(--muted);">Idempotent Outbox Dispatch</span>
             </div>
             <div class="step-content" id="step5-content"></div>
           </div>
         </div>
 
-        <!-- Audit Trail -->
         <div>
-          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">Chronological State Transition Audit Log</div>
-          <div id="modal-audit-log" style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:10px 16px;"></div>
+          <div style="font-size:12.5px; font-weight:700; margin-bottom:6px;">Immutable State Transition Audit Log</div>
+          <div id="modal-audit-log" style="background:var(--canvas); border:1px solid var(--line); border-radius:var(--radius-sm); padding:8px 14px;"></div>
         </div>
       </div>
 
       <div class="modal-footer" id="modal-actions-container">
         <button class="btn btn-outline" onclick="closeCaseModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- LIVE TRANSACTION INJECTION MODAL -->
+  <!-- ================================================================= -->
+  <div class="modal-backdrop" id="inject-modal" onclick="if(event.target === this) closeInjectModal()">
+    <div class="drilldown-modal" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="leak-badge" style="color:var(--indigo); background:var(--indigo-soft);">LIVE EVENT</span>
+          <span class="modal-title">Inject At-Risk Transaction</span>
+        </div>
+        <button class="btn-icon" onclick="closeInjectModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <p style="font-size:12.5px; color:var(--muted);">
+          Simulate a real-time payment decline, abandoned checkout, mandate failure, or overdue B2B invoice entering the Backstop recovery pipeline.
+        </p>
+        <div>
+          <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Customer Name</label>
+          <input type="text" id="inj-name" class="search-input" style="padding-left:10px; width:100%;" value="Suhani Sharma">
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Amount at Risk (₹)</label>
+            <input type="number" id="inj-amount" class="search-input" style="padding-left:10px; width:100%;" value="24500">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Leak Category</label>
+            <select id="inj-leak" class="filter-select" style="width:100%;">
+              <option value="failed_payment">Failed Card / UPI Payment</option>
+              <option value="abandoned_checkout">Abandoned Checkout</option>
+              <option value="subscription_mandate">Subscription Mandate</option>
+              <option value="b2b_invoice">B2B Overdue Invoice</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Root Cause / Decline Code</label>
+            <select id="inj-cause" class="filter-select" style="width:100%;">
+              <option value="insufficient_funds">Insufficient Funds (Salary Delay)</option>
+              <option value="issuer_down">Issuer / Gateway Down (HTTP 504)</option>
+              <option value="expired_card">Expired Card</option>
+              <option value="shipping_shock">Shipping Cost Drop-Off</option>
+              <option value="mandate_limit_exceeded">Mandate Limit Exceeded</option>
+              <option value="invoice_dispute">Active Invoice Dispute (Freeze)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; display:block; margin-bottom:4px;">Bank / Route</label>
+            <select id="inj-bank" class="filter-select" style="width:100%;">
+              <option value="HDFC">HDFC Bank</option>
+              <option value="ICICI">ICICI Bank</option>
+              <option value="SBI">SBI</option>
+              <option value="Axis">Axis Bank</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="inj-dnd">
+          <label for="inj-dnd" style="font-size:12px; color:var(--muted);">Customer is registered on TRAI National DND (Test hard stopping rule)</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeInjectModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitInjectTransaction()">Run Through Live Engine</button>
       </div>
     </div>
   </div>

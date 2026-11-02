@@ -1,8 +1,8 @@
 """
 Backstop One-Page Executive Recovery Report Compiler.
-Reads batch evaluation metrics, computes incremental lift vs holdout control,
-formats the recovery funnel and compliance audit trail, and renders a print-ready
-HTML executive document.
+Reads batch evaluation metrics or live DataStore state, computes incremental lift vs
+holdout control, formats the recovery funnel, compliance audit trail, and live operator
+activity log, and renders a print-ready HTML executive document.
 """
 
 import os
@@ -16,7 +16,6 @@ from typing import Dict, Any, List, Optional
 # Add parent path to support running directly from repository root or subfolder
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Ensure UTF-8 output when supported by stream
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -51,7 +50,8 @@ def format_inr(val: float, include_symbol: bool = True) -> str:
 
 class ExecutiveReportGenerator:
     """
-    Generates C-level, one-page printable Recovery Reports from evaluation runs.
+    Generates C-level, one-page printable Recovery Reports from evaluation runs
+    or live operator dashboard state.
     Guarantees zero NaN values, strict compliance audit reporting, and clean
     print-ready styling.
     """
@@ -64,103 +64,27 @@ class ExecutiveReportGenerator:
 
     def load_evaluation_data(self, data_source: Optional[Any] = None) -> Dict[str, Any]:
         """
-        Loads evaluation data from provided dictionary, JSON file, or falls back to
-        canonical benchmark data if data_source is None.
+        Loads evaluation data from provided dictionary, JSON file, or generates
+        the canonical benchmark dataset.
         """
-        if data_source is None:
-            return self._build_canonical_benchmark_data()
-
         if isinstance(data_source, dict):
-            if "leak_type_breakdown" in data_source or "agent" in data_source:
-                return self._adapt_evaluation_report(data_source)
             return data_source
 
         if isinstance(data_source, str) and os.path.exists(data_source):
             if data_source.endswith(".json"):
                 with open(data_source, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                    if "leak_type_breakdown" in raw or "agent" in raw:
-                        return self._adapt_evaluation_report(raw)
-                    return raw
+                    return json.load(f)
+
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        json_eval = os.path.join(root_dir, "data", "evaluation_report.json")
+        if os.path.exists(json_eval):
+            try:
+                with open(json_eval, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
 
         return self._build_canonical_benchmark_data()
-
-    def _adapt_evaluation_report(self, raw: Dict[str, Any]) -> Dict[str, Any]:
-        agent = raw.get("agent", {})
-        control = raw.get("control", {})
-        total_cases = raw.get("total_cases", 320)
-        total_risk = raw.get("total_revenue_at_risk", 6881334.0)
-        net_rec = agent.get("net_recovered", 3746465.0)
-        gross_rec = agent.get("gross_recovered", net_rec)
-        outreach = agent.get("outreach_cost", 7614.0)
-        disc = agent.get("discounts_given", 11171.0)
-        roi = agent.get("roi", net_rec / max(outreach, 1.0))
-        lift = raw.get("incremental_lift_vs_control_pct", raw.get("incremental_lift_pct", 52.2))
-        ci = raw.get("confidence_interval_95", {})
-        ci_lower = ci.get("lower_pct", 43.2)
-        ci_upper = ci.get("upper_pct", 61.2)
-
-        leak_map = {
-            "failed_payment": ("Failed Card & UPI Payments", "Delayed Retry / Gateway Reroute"),
-            "abandoned_checkout": ("Abandoned Checkouts", "WhatsApp Nudge / Discount Link"),
-            "subscription_mandate": ("Subscription Mandates (Autopay)", "Pre-Debit Alert / Mandate Retry"),
-            "b2b_invoice": ("B2B Invoices & Receivables", "Hinglish Voice / PTP / Recon Task"),
-        }
-
-        leak_perf = []
-        raw_leaks = raw.get("leak_type_breakdown", {})
-        for k, (cat_name, top_act) in leak_map.items():
-            ldata = raw_leaks.get(k, {})
-            c_cnt = ldata.get("total_cases", 0)
-            rec_cnt = ldata.get("recovered_cases", 0)
-            rec_rev = ldata.get("net_recovered", 0.0)
-            win = round((rec_cnt / max(c_cnt, 1)) * 100.0, 1)
-            leak_perf.append({
-                "category": cat_name,
-                "cases": c_cnt,
-                "top_action": top_act,
-                "recovered_revenue": rec_rev,
-                "win_rate": win,
-                "net_lift": round(win * 0.75, 1)
-            })
-
-        supp_reasons = raw.get("suppression_reasons", {})
-        dnd = sum(v for k, v in supp_reasons.items() if "dnd" in k.lower())
-        quiet = sum(v for k, v in supp_reasons.items() if "quiet" in k.lower())
-        disputes = sum(v for k, v in supp_reasons.items() if "dispute" in k.lower())
-        sys_drops = raw.get("systemic_cases_intercepted", 38)
-
-        recovered_cases_cnt = agent.get("recovered_cases", int(total_cases * 0.5))
-
-        return {
-            "merchant_name": "Razorpay Enterprise Merchant / ACME Retail India",
-            "report_date": datetime.now().strftime("%B %d, %Y"),
-            "run_id": raw.get("run_id", "RUN-2026-ACTIVE"),
-            "total_cases_evaluated": total_cases,
-            "total_revenue_at_risk": total_risk,
-            "net_recovered_revenue": net_rec,
-            "gross_recovered_revenue": gross_rec,
-            "control_group_revenue": control.get("gross_recovered", 0.0),
-            "incremental_lift_pct": lift,
-            "ci_lower": ci_lower,
-            "ci_upper": ci_upper,
-            "total_outreach_cost": outreach,
-            "discounts_redeemed": disc,
-            "strategy_roi": round(roi, 1),
-            "funnel": {
-                "detected": {"count": total_cases, "amount": total_risk, "pct": 100.0},
-                "contacted": {"count": total_cases - raw.get("suppressed_count", 0), "amount": round(total_risk * 0.88, 2), "pct": round((total_cases - raw.get("suppressed_count", 0)) / max(total_cases, 1) * 100.0, 1)},
-                "promised": {"count": int(recovered_cases_cnt * 0.65), "amount": round(net_rec * 0.65, 2), "pct": 42.0},
-                "recovered": {"count": recovered_cases_cnt, "amount": net_rec, "pct": round(recovered_cases_cnt / max(total_cases, 1) * 100.0, 1)},
-            },
-            "leak_performance": leak_perf,
-            "compliance_audit": {
-                "dnd_blocks": max(dnd, 12),
-                "quiet_hours_deferrals": max(quiet, 42),
-                "disputes_frozen": max(disputes, 18),
-                "systemic_drops_intercepted": max(sys_drops, 38),
-            }
-        }
 
     def _build_canonical_benchmark_data(self) -> Dict[str, Any]:
         """
@@ -228,6 +152,14 @@ class ExecutiveReportGenerator:
                 "disputes_frozen": 18,
                 "systemic_drops_intercepted": 14,
             },
+            "live_activity_log": [
+                {
+                    "timestamp": "2026-11-02 11:30:00 UTC",
+                    "actor": "BackstopEngine",
+                    "event": "EVALUATION_COMPLETED",
+                    "detail": "Evaluated 350 multi-leak cases with zero regulatory or DND violations."
+                }
+            ],
         }
 
     def generate_executive_summary_paragraph(self, data: Dict[str, Any]) -> str:
@@ -285,7 +217,6 @@ class ExecutiveReportGenerator:
 
         summary_paragraph = self.generate_executive_summary_paragraph(data)
 
-        # Context mapping
         funnel = data.get("funnel", {})
         f_det = funnel.get("detected", {})
         f_con = funnel.get("contacted", {})
@@ -293,6 +224,28 @@ class ExecutiveReportGenerator:
         f_rec = funnel.get("recovered", {})
 
         audit = data.get("compliance_audit", {})
+        pol = data.get("active_policy", {
+            "retry_limit": 3,
+            "discount_cap_pct": 10.0,
+            "quiet_hours_enabled": True,
+            "min_case_value": 200.0,
+            "human_review_threshold": 50000.0,
+        })
+
+        activity_items = data.get("live_activity_log") or [
+            {
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "actor": "BackstopEngine",
+                "event": "REPORT_GENERATED",
+                "detail": "Compiled live executive metrics from active store."
+            }
+        ]
+        activity_html = "".join(
+            f'<div class="activity-row"><span class="act-time">{item.get("timestamp", "")}</span> '
+            f'<span class="act-badge">{item.get("actor", "System")} &bull; {item.get("event", "")}</span> '
+            f'<span class="act-detail">{item.get("detail", "")}</span></div>'
+            for item in activity_items[:6]
+        )
 
         context = {
             "merchant_name": str(data.get("merchant_name", "Razorpay Enterprise Merchant")),
@@ -324,9 +277,14 @@ class ExecutiveReportGenerator:
             "quiet_hours_deferrals": str(audit.get("quiet_hours_deferrals", 0)),
             "disputes_frozen": str(audit.get("disputes_frozen", 0)),
             "systemic_drops_intercepted": str(audit.get("systemic_drops_intercepted", 0)),
+            # Live Policy & Activity
+            "policy_retry_limit": str(pol.get("retry_limit", 3)),
+            "policy_discount_cap": f"{pol.get('discount_cap_pct', 10.0):.0f}%",
+            "policy_min_val": format_inr(pol.get("min_case_value", 200.0)),
+            "policy_human_thr": format_inr(pol.get("human_review_threshold", 50000.0)),
+            "live_activity_rows": activity_html,
         }
 
-        # Process leak_performance loop
         loop_pattern = re.compile(r"\{%\s*for\s+leak\s+in\s+leak_performance\s*%\}(.*?)\{%\s*endfor\s*%\}", re.DOTALL)
         match = loop_pattern.search(template_content)
         if match:
@@ -343,12 +301,10 @@ class ExecutiveReportGenerator:
                 rendered_rows.append(row)
             template_content = loop_pattern.sub("".join(rendered_rows), template_content)
 
-        # Replace standalone variables
         for key, val in context.items():
             template_content = template_content.replace(f"{{{{ {key} }}}}", str(val))
             template_content = template_content.replace(f"{{{{{key}}}}}", str(val))
 
-        # Verification check: No NaNs or unparsed placeholders
         if "NaN" in template_content:
             template_content = template_content.replace("NaN", "0.0")
 
@@ -367,7 +323,6 @@ def generate_report(data_source: Optional[Any] = None, output_path: Optional[str
     generator = ExecutiveReportGenerator()
     html_output = generator.compile_report(data_source)
 
-    # Ensure target directory exists
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
     with open(output_path, "w", encoding="utf-8") as f:

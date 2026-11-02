@@ -1,7 +1,9 @@
 """
-Backstop Hinglish Voice Dialogue State Machine & Intent Parser.
-Deterministic state-machine-controlled conversation engine enforcing RBI fair recovery
-guardrails, mid-call WhatsApp link dispatch, PTP logging, and dispute freezes.
+Backstop Hinglish Voice Dialogue State Machine & Multi-Turn Conversational Intent Engine.
+Supports both:
+1. Live Google Gemini LLM multi-turn intent & Hinglish response generation (when GEMINI_API_KEY is set).
+2. Rich multi-turn deterministic Hinglish/Hindi (Devanagari + Latin) + English conversational state machine
+   that never gets stuck on single-turn replies or "Maaf kijiye" when the customer asks natural questions.
 """
 
 import os
@@ -13,13 +15,16 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Dict, Any, Optional, Tuple, List
 
-# Add parent path to support running directly from repository root or subfolder
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from voice.mid_call_link import send_mid_call_paylink, mask_phone_number
-from voice.prompts import generate_hinglish_response, get_fallback_phrasing
+from voice.prompts import (
+    generate_hinglish_response,
+    get_fallback_phrasing,
+    analyze_and_respond_with_gemini,
+    get_runtime_gemini_key,
+)
 
-# Ensure UTF-8 output when supported by stream
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -29,6 +34,8 @@ if hasattr(sys.stdout, "reconfigure"):
 
 class VoiceIntent(str, Enum):
     GREETING = "GREETING"
+    ASK_DETAILS = "ASK_DETAILS"
+    NEGOTIATE_DISCOUNT = "NEGOTIATE_DISCOUNT"
     PAY_NOW = "PAY_NOW"
     PROMISE_LATER = "PROMISE_LATER"
     SEND_LINK = "SEND_LINK"
@@ -36,6 +43,7 @@ class VoiceIntent(str, Enum):
     INVOICE_DISPUTE = "INVOICE_DISPUTE"
     ANGER_HOSTILITY = "ANGER_HOSTILITY"
     OPT_OUT = "OPT_OUT"
+    GOODBYE = "GOODBYE"
     CLARIFY = "CLARIFY"
     UNKNOWN = "UNKNOWN"
 
@@ -43,6 +51,7 @@ class VoiceIntent(str, Enum):
 class CallState(str, Enum):
     OUTBOUND_CONNECT = "OUTBOUND_CONNECT"
     GREETING_STAGED = "GREETING_STAGED"
+    IN_CONVERSATION = "IN_CONVERSATION"
     INTENT_CLASSIFICATION = "INTENT_CLASSIFICATION"
     PAY_NOW_PROCESSING = "PAY_NOW_PROCESSING"
     PROMISED_CAPTURED = "PROMISED_CAPTURED"
@@ -110,6 +119,7 @@ class SimulationTurnResult:
     dispute_task: Optional[DisputeReconTask] = None
     call_ended: bool = False
     customer_utterance: str = ""
+    llm_source: str = "deterministic_engine"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -125,11 +135,44 @@ class SimulationTurnResult:
             "dispute_task": self.dispute_task.to_dict() if self.dispute_task else None,
             "call_ended": self.call_ended,
             "customer_utterance": self.customer_utterance,
+            "llm_source": self.llm_source,
         }
 
 
-# Preset customer objection scenarios for interactive testing
+# Devanagari to Latin Hinglish normalization table so Chrome hi-IN microphone transcripts match seamlessly
+DEVANAGARI_MAP = {
+    "हाँ": "haan", "हां": "haan", "जी": "ji", "बोलो": "bolo", "बोलिए": "boliye",
+    "बताइए": "bataiye", "बताओ": "batao", "क्या": "kya", "किस": "kis", "चीज़": "cheez",
+    "चीज": "cheez", "पेमेंट": "payment", "बिल": "bill", "इनवॉइस": "invoice",
+    "सैलरी": "salary", "तारीख": "tareekh", "को": "ko", "दूंगा": "dunga", "दूँगा": "dunga",
+    "करूंगा": "karunga", "करूँगा": "karunga", "ट्रांसफर": "transfer", "कल": "kal",
+    "परसों": "parso", "पैसे": "paise", "नहीं": "nahi", "अभी": "abhi", "देता": "deta",
+    "हूँ": "hu", "हूं": "hu", "लिंक": "link", "भेज": "bhej", "भेजो": "bhejo",
+    "दो": "do", "व्हाट्सएप": "whatsapp", "वाट्सएप": "whatsapp", "यूपीआई": "upi",
+    "किया": "kiya", "दिया": "diya", "था": "tha", "चुका": "chuka", "कट": "kat",
+    "गए": "gaye", "गलत": "galat", "डिस्काउंट": "discount", "कम": "kam",
+    "बकवास": "bakwas", "बंद": "band", "तमीज़": "tameez", "तमीज": "tameez",
+    "मत": "mat", "हटाओ": "hatao", "नंबर": "number", "डीएनडी": "dnd",
+    "धन्यवाद": "dhanyawad", "शुक्रिया": "shukriya", "ठीक": "theek", "बाय": "bye",
+    "समय": "samay", "बात": "baat", "करने": "karne", "सही": "sahi",
+}
+
+
+def normalize_hinglish_text(text: str) -> str:
+    """Normalizes Devanagari Hindi words into Latin Hinglish equivalents for deterministic parsing."""
+    out = (text or "").strip().lower()
+    for dev, lat in DEVANAGARI_MAP.items():
+        out = out.replace(dev, f" {lat} ")
+    out = re.sub(r"\s+", " ", out).strip()
+    return out
+
+
 CustomerObjection = [
+    {
+        "id": "ask_details",
+        "label": "Ask payment details (Multi-turn)",
+        "phrase": "Haan boliye, yeh kis cheez ka payment pending dikha raha hai?",
+    },
     {
         "id": "ptp_salary",
         "label": "Salary delay promise (5th)",
@@ -170,9 +213,9 @@ CustomerObjection = [
 
 class HinglishVoiceSimulator:
     """
-    Deterministic State Machine Controlled Hinglish Recovery Engine.
-    The LLM never chooses the next state; strict state machine transitions dictate
-    the workflow and policy rule executions.
+    Deterministic + Gemini LLM Assisted Hinglish Recovery Engine.
+    Policy rules and state transitions are enforced deterministically while allowing
+    natural multi-turn dialogue in the live Voice Studio.
     """
 
     def __init__(
@@ -182,6 +225,8 @@ class HinglishVoiceSimulator:
         customer_name: str = "Rohan Gupta",
         phone: str = "+91 98765 43210",
         amount: float = 14500.0,
+        leak_type: str = "b2b_invoice",
+        predicted_cause: str = "cash_flow_timing",
         reference_date: Optional[datetime] = None,
     ):
         self.case_id = case_id
@@ -190,15 +235,15 @@ class HinglishVoiceSimulator:
         self.phone = phone
         self.phone_masked = mask_phone_number(phone)
         self.amount = amount
-        # Deterministic simulation time baseline (defaults to 2026-11-02)
+        self.leak_type = leak_type
+        self.predicted_cause = predicted_cause
         self.reference_date = reference_date or datetime(2026, 11, 2, 11, 0, 0, tzinfo=timezone.utc)
 
-        # State tracking
         self.call_state = CallState.OUTBOUND_CONNECT
         self.case_state = CaseState.READY
         self.history: List[SimulationTurnResult] = []
+        self.dialogue_turns: List[Dict[str, str]] = []
 
-        # Operational registers
         self.registered_ptp: Optional[PromiseToPayRecord] = None
         self.dispute_task: Optional[DisputeReconTask] = None
         self.last_dispatched_link: Optional[Dict[str, Any]] = None
@@ -209,6 +254,7 @@ class HinglishVoiceSimulator:
         """Initiates outbound call and stages greeting."""
         self.call_state = CallState.GREETING_STAGED
         self.case_state = CaseState.READY
+        self.dialogue_turns = []
 
         res = generate_hinglish_response(
             intent="GREETING",
@@ -217,6 +263,7 @@ class HinglishVoiceSimulator:
             phone_masked=self.phone_masked,
             customer_utterance=None,
         )
+        self.dialogue_turns.append({"role": "Agent", "text": res["text"]})
 
         step = SimulationTurnResult(
             call_state=self.call_state,
@@ -227,26 +274,26 @@ class HinglishVoiceSimulator:
             agent_response=res["text"],
             extracted_entities={"customer_name": self.customer_name, "amount": self.amount},
             customer_utterance="[CALL_CONNECTED]",
+            llm_source=res.get("source", "fallback_template"),
         )
         self.history.append(step)
         return step
 
     def parse_intent(self, text: str) -> Tuple[VoiceIntent, float, Dict[str, Any]]:
         """
-        Deterministic intent classifier for Hinglish and English customer recovery utterances.
-        Extracts intent, confidence score, and entities (dates, amounts).
+        Multi-turn intent classifier supporting Hinglish, Hindi (Devanagari), and English.
         """
-        clean = (text or "").strip().lower()
+        clean = normalize_hinglish_text(text)
 
-        # 1. OPT_OUT (Check high-priority compliance triggers first)
-        if any(w in clean for w in ["dnd", "opt out", "opt-out", "list se hatao", "hata do", "number remove", "phone mat karna", "calling band"]):
-            if "dnd" in clean or "list se hatao" in clean or "remove" in clean:
+        # 1. OPT_OUT (High-priority compliance trigger)
+        if any(w in clean for w in ["dnd", "opt out", "opt-out", "list se hatao", "hata do", "number remove", "phone mat karna", "calling band", "do not call"]):
+            if "dnd" in clean or "list se" in clean or "hata" in clean or "remove" in clean or "do not call" in clean:
                 return VoiceIntent.OPT_OUT, 0.99, {"action": "permanent_dnd"}
 
         # 2. ANGER / HOSTILITY
         hostility_markers = [
             "bakwas", "bakwaas", "tameez", "harass", "police", "court", "chup raho",
-            "shutup", "fraud", "complaint", "gali", "chor", "stop calling"
+            "shutup", "shut up", "fraud", "complaint", "gali", "chor", "stop calling", "phone mat"
         ]
         if any(w in clean for w in hostility_markers):
             return VoiceIntent.ANGER_HOSTILITY, 0.96, {"hostility_level": "HIGH"}
@@ -256,7 +303,7 @@ class HinglishVoiceSimulator:
             "already paid", "already pay", "already de diya", "pay kar diya",
             "pay kar chuka", "paise kat gaye", "kat chuke", "transfer kar diya tha",
             "shaam ko hi upi se", "kal hi pay kiya", "done payment", "payment kar chuka",
-            "already done"
+            "already done", "upi se pay kiya", "paid yesterday", "bhej diya tha"
         ]
         if any(w in clean for w in already_paid_markers):
             return VoiceIntent.ALREADY_PAID, 0.98, {"claim": "payment_completed"}
@@ -264,7 +311,7 @@ class HinglishVoiceSimulator:
         # 4. INVOICE DISPUTE
         dispute_markers = [
             "invoice galat", "bill galat", "discount nahi laga", "amount galat",
-            "wrong bill", "wrong invoice", "extra charge", "po missing", "dispute"
+            "wrong bill", "wrong invoice", "extra charge", "po missing", "dispute", "service kharab"
         ]
         if any(w in clean for w in dispute_markers):
             return VoiceIntent.INVOICE_DISPUTE, 0.95, {"issue": "invoice_discrepancy"}
@@ -273,7 +320,7 @@ class HinglishVoiceSimulator:
         link_markers = [
             "link bhej do", "link bhejo", "whatsapp pe link", "whatsapp par link",
             "send link", "send payment link", "message me link", "link whatsapp",
-            "whatsapp link"
+            "whatsapp link", "link send", "whatsapp kar do", "bhej do link"
         ]
         if any(w in clean for w in link_markers) and not any(w in clean for w in ["abhi kar deta", "salary"]):
             return VoiceIntent.SEND_LINK, 0.97, {"channel": "WHATSAPP"}
@@ -281,7 +328,8 @@ class HinglishVoiceSimulator:
         # 6. PAY_NOW
         pay_now_markers = [
             "abhi kar deta", "abhi karta hu", "abhi pay kar", "pay right now",
-            "pay now", "gpay se abhi", "abhi bhej raha", "online abhi", "ready to pay"
+            "pay now", "gpay se abhi", "abhi bhej raha", "online abhi", "ready to pay",
+            "abhi transfer kar", "kar deta hu abhi", "doing it now"
         ]
         if any(w in clean for w in pay_now_markers):
             return VoiceIntent.PAY_NOW, 0.96, {"payment_mode": "instant_online"}
@@ -290,9 +338,10 @@ class HinglishVoiceSimulator:
         ptp_markers = [
             "salary", "tareekh", "tarikh", "transfer karunga", "pay karunga",
             "dunga", "bhej dunga", "kal dunga", "parso", "next week", "monday",
-            "promise", "paise aane do"
+            "promise", "paise aane do", "baad mein", "abhi paise nahi", "tight hai",
+            "thoda time", "do din baad", "agle hafte", "kal karunga"
         ]
-        if any(w in clean for w in ptp_markers) or re.search(r"\b\d{1,2}(th|st|nd|rd)?\s*(ko|tak|tareekh|tarikh)?\b", clean):
+        if any(w in clean for w in ptp_markers) or re.search(r"\b\d{1,2}(th|st|nd|rd)?\s*(ko|tak|tareekh|tarikh)\b", clean):
             date_str, date_phrase = self._extract_promise_date(clean)
             return VoiceIntent.PROMISE_LATER, 0.98, {
                 "promised_date": date_str,
@@ -300,40 +349,51 @@ class HinglishVoiceSimulator:
                 "amount": self.amount,
             }
 
-        # 8. GREETING / ACKNOWLEDGMENT
-        greeting_markers = ["hello", "namaste", "haan bolo", "kaun bol raha", "yes", "bataiye"]
-        if any(clean.startswith(w) for w in greeting_markers) and len(clean.split()) <= 4:
-            return VoiceIntent.GREETING, 0.85, {}
+        # 8. NEGOTIATE_DISCOUNT
+        discount_markers = [
+            "discount", "waiver", "kam kar", "thoda kam", "concession", "mehenga",
+            "late fee hata", "offer", "settle"
+        ]
+        if any(w in clean for w in discount_markers):
+            return VoiceIntent.NEGOTIATE_DISCOUNT, 0.92, {"max_discount_pct": 10.0}
 
-        # 9. Fallback / Clarification needed
+        # 9. GOODBYE / CALL CLOSURE
+        goodbye_markers = [
+            "bye", "good bye", "goodbye", "shukriya", "dhanyawad", "thank you",
+            "thanks", "ok rakhta hu", "bas itna hi", "done thanks"
+        ]
+        if any(w in clean for w in goodbye_markers):
+            return VoiceIntent.GOODBYE, 0.95, {}
+
+        # 10. ASK_DETAILS / CONVERSATIONAL ACKNOWLEDGMENT ("Haan boliye", "Kis cheez ka?", "Yes tell me")
+        details_markers = [
+            "haan", "han", "yes", "bolo", "boliye", "bataiye", "batao", "kaun",
+            "kis cheez", "kya hai", "kaunsa", "details", "pending", "why", "kiski",
+            "what payment", "which invoice", "sahi samay", "baat kar", "go ahead",
+            "hello", "namaste", "hi", "ok", "okay", "accha", "achha", "ji"
+        ]
+        if any(w in clean for w in details_markers):
+            return VoiceIntent.ASK_DETAILS, 0.90, {}
+
+        # 11. Fallback / Clarification needed
         return VoiceIntent.CLARIFY, 0.50, {}
 
     def _extract_promise_date(self, text: str) -> Tuple[str, str]:
-        """
-        Extracts future promised payment date from Hinglish phrases.
-        Example:
-          - "5 tareekh ko" -> ("2026-11-05", "5 tareekh")
-          - "salary aane do 5th ko" -> ("2026-11-05", "5 tareekh")
-          - "kal dunga" -> ("2026-11-03", "kal")
-          - "parso dunga" -> ("2026-11-04", "parso")
-        """
         base = self.reference_date
 
-        if "kal" in text:
+        if "kal" in text or "tomorrow" in text:
             dt = base + timedelta(days=1)
             return dt.strftime("%Y-%m-%d"), "kal"
         if "parso" in text:
             dt = base + timedelta(days=2)
             return dt.strftime("%Y-%m-%d"), "parso"
 
-        # Match day numbers: e.g. "5 tareekh", "5th", "5 ko", "10 tareekh"
         match = re.search(r"\b(\d{1,2})\s*(st|nd|rd|th)?\s*(tareekh|tarikh|ko|tak)?\b", text)
         if match:
             day_num = int(match.group(1))
             if 1 <= day_num <= 31:
                 year = base.year
                 month = base.month
-                # If target day has already passed this month, target next month
                 if day_num < base.day:
                     month = month + 1 if month < 12 else 1
                     year = year + 1 if month == 1 else year
@@ -343,7 +403,6 @@ class HinglishVoiceSimulator:
                 except ValueError:
                     pass
 
-        # If only "salary aane do" is spoken without explicit number, default to 5th (standard Indian salary cycle)
         if "salary" in text:
             day_num = 5
             year = base.year
@@ -352,16 +411,130 @@ class HinglishVoiceSimulator:
             dt = datetime(year, month, day_num, 9, 0, 0, tzinfo=timezone.utc)
             return dt.strftime("%Y-%m-%d"), "5 tareekh"
 
-        # Default fallback to 3 days out
         default_dt = base + timedelta(days=3)
         return default_dt.strftime("%Y-%m-%d"), f"{default_dt.day} tareekh"
 
-    def step(self, customer_utterance: str) -> SimulationTurnResult:
+    def step(self, customer_utterance: str, multi_turn: bool = False) -> SimulationTurnResult:
         """
-        Executes a deterministic state machine transition based on customer utterance.
-        Strict transition rules ensure RBI compliance and instant de-escalation.
+        Executes a conversation turn.
+        - When a Gemini API key is configured and multi_turn=True, uses Gemini Flash to understand
+          nuanced multi-turn Hinglish/Hindi/English dialogue while enforcing deterministic policy actions.
+        - When multi_turn=True (used by the live Voice Studio UI), keeps the call alive across multiple turns
+          for ASK_DETAILS, NEGOTIATE_DISCOUNT, SEND_LINK, PAY_NOW, and PROMISE_LATER until the user says goodbye
+          or a hard compliance stop (ALREADY_PAID, INVOICE_DISPUTE, ANGER_HOSTILITY, OPT_OUT) triggers.
+        - When multi_turn=False (default for unit tests), preserves exact single-turn terminal behavior.
         """
-        intent, confidence, entities = self.parse_intent(customer_utterance)
+        self.dialogue_turns.append({"role": "Customer", "text": customer_utterance})
+
+        det_intent, det_conf, det_entities = self.parse_intent(customer_utterance)
+        llm_result = None
+        llm_source = "deterministic_engine"
+
+        # If Gemini API key is active in multi-turn studio mode, consult Gemini LLM
+        if multi_turn and get_runtime_gemini_key():
+            llm_result = analyze_and_respond_with_gemini(
+                customer_utterance=customer_utterance,
+                customer_name=self.customer_name,
+                amount=self.amount,
+                phone_masked=self.phone_masked,
+                leak_type=self.leak_type,
+                predicted_cause=self.predicted_cause,
+                conversation_history=self.dialogue_turns[:-1],
+            )
+
+        if llm_result:
+            llm_source = "gemini-2.5-flash"
+            raw_intent = str(llm_result.get("detected_intent", "")).upper()
+            # Safety override: if deterministic parser caught a hard compliance stop (OPT_OUT, ANGER, ALREADY_PAID, DISPUTE), enforce it
+            if det_intent in (VoiceIntent.OPT_OUT, VoiceIntent.ANGER_HOSTILITY, VoiceIntent.ALREADY_PAID, VoiceIntent.INVOICE_DISPUTE):
+                intent = det_intent
+                confidence = det_conf
+                entities = det_entities
+            else:
+                try:
+                    intent = VoiceIntent(raw_intent)
+                except ValueError:
+                    intent = det_intent
+                confidence = float(llm_result.get("confidence", 0.95))
+                entities = dict(det_entities)
+                if llm_result.get("promised_date"):
+                    entities["promised_date"] = llm_result["promised_date"]
+                if llm_result.get("date_phrase"):
+                    entities["date_phrase"] = llm_result["date_phrase"]
+            custom_agent_reply = llm_result.get("agent_response")
+            llm_should_end = bool(llm_result.get("should_end_call", False))
+        else:
+            intent = det_intent
+            confidence = det_conf
+            entities = det_entities
+            custom_agent_reply = None
+            llm_should_end = False
+
+        # ------------------------------------------------------------------
+        # MULTI-TURN CONVERSATIONAL INTENTS (ASK_DETAILS, NEGOTIATE_DISCOUNT, GOODBYE)
+        # ------------------------------------------------------------------
+        if intent == VoiceIntent.ASK_DETAILS:
+            self.call_state = CallState.IN_CONVERSATION
+            reply_text = custom_agent_reply or get_fallback_phrasing(
+                "ASK_DETAILS", customer_name=self.customer_name, amount=self.amount, phone_masked=self.phone_masked
+            )
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            res = SimulationTurnResult(
+                call_state=self.call_state,
+                case_state=self.case_state,
+                detected_intent=intent,
+                confidence=confidence,
+                fired_policy_rule="RULE_CONVERSATIONAL_DETAILS_SHARED",
+                agent_response=reply_text,
+                extracted_entities={"leak_type": self.leak_type, "amount": self.amount},
+                call_ended=False,
+                customer_utterance=customer_utterance,
+                llm_source=llm_source,
+            )
+            self.history.append(res)
+            return res
+
+        if intent == VoiceIntent.NEGOTIATE_DISCOUNT:
+            self.call_state = CallState.IN_CONVERSATION
+            reply_text = custom_agent_reply or get_fallback_phrasing(
+                "NEGOTIATE_DISCOUNT", customer_name=self.customer_name, amount=self.amount, phone_masked=self.phone_masked
+            )
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            res = SimulationTurnResult(
+                call_state=self.call_state,
+                case_state=self.case_state,
+                detected_intent=intent,
+                confidence=confidence,
+                fired_policy_rule="RULE_MARGIN_GUARDRAIL_10PCT_OFFERED",
+                agent_response=reply_text,
+                extracted_entities={"max_discount_pct": 10.0, "discounted_amount": round(self.amount * 0.9, 2)},
+                call_ended=False,
+                customer_utterance=customer_utterance,
+                llm_source=llm_source,
+            )
+            self.history.append(res)
+            return res
+
+        if intent == VoiceIntent.GOODBYE:
+            self.call_state = CallState.CALL_ENDED
+            reply_text = custom_agent_reply or get_fallback_phrasing(
+                "GOODBYE", customer_name=self.customer_name, amount=self.amount, phone_masked=self.phone_masked
+            )
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            res = SimulationTurnResult(
+                call_state=CallState.CALL_ENDED,
+                case_state=self.case_state,
+                detected_intent=intent,
+                confidence=confidence,
+                fired_policy_rule="RULE_POLITE_CALL_CLOSURE",
+                agent_response=reply_text,
+                extracted_entities={},
+                call_ended=True,
+                customer_utterance=customer_utterance,
+                llm_source=llm_source,
+            )
+            self.history.append(res)
+            return res
 
         # ------------------------------------------------------------------
         # BRANCH 1: PAY_NOW
@@ -376,25 +549,33 @@ class HinglishVoiceSimulator:
             )
             self.last_dispatched_link = paylink_payload
 
-            resp = generate_hinglish_response(
-                intent="PAY_NOW",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="PAY_NOW",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            end_flag = (not multi_turn) or llm_should_end
             result = SimulationTurnResult(
-                call_state=CallState.CALL_ENDED,
+                call_state=CallState.CALL_ENDED if end_flag else CallState.PAY_NOW_PROCESSING,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_PAY_NOW_LINK_DISPATCH",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities=entities,
                 dispatched_link=paylink_payload,
-                call_ended=True,
+                call_ended=end_flag,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
@@ -406,10 +587,11 @@ class HinglishVoiceSimulator:
             self.call_state = CallState.PROMISED_CAPTURED
             self.case_state = CaseState.PROMISED
 
-            promised_date = entities.get("promised_date", "2026-11-05")
-            date_phrase = entities.get("date_phrase", "5 tareekh")
+            promised_date = entities.get("promised_date")
+            date_phrase = entities.get("date_phrase")
+            if not promised_date or not date_phrase:
+                promised_date, date_phrase = self._extract_promise_date(normalize_hinglish_text(customer_utterance))
 
-            # Register PTP
             ptp = PromiseToPayRecord(
                 ptp_id=f"ptp_{self.case_id}_{int(time.time())}",
                 case_id=self.case_id,
@@ -421,33 +603,40 @@ class HinglishVoiceSimulator:
             )
             self.registered_ptp = ptp
 
-            # Attempt hook to engine.execution.ptp if present
             try:
                 from engine.execution.ptp import register_promise
                 register_promise(self.case_id, promised_date, self.amount)
             except Exception:
-                pass  # Standalone mode handles this safely
+                pass
 
-            resp = generate_hinglish_response(
-                intent="PROMISE_LATER",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                date_phrase=date_phrase,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="PROMISE_LATER",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    date_phrase=date_phrase,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            end_flag = (not multi_turn) or llm_should_end
             result = SimulationTurnResult(
-                call_state=CallState.CALL_ENDED,
+                call_state=CallState.CALL_ENDED if end_flag else CallState.PROMISED_CAPTURED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_PTP_REGISTERED_HOLD_OUTREACH",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities=entities,
                 ptp_record=ptp,
-                call_ended=True,
+                call_ended=end_flag,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
@@ -466,37 +655,44 @@ class HinglishVoiceSimulator:
             )
             self.last_dispatched_link = paylink_payload
 
-            resp = generate_hinglish_response(
-                intent="SEND_LINK",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="SEND_LINK",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
+            end_flag = (not multi_turn) or llm_should_end
             result = SimulationTurnResult(
-                call_state=CallState.CALL_ENDED,
+                call_state=CallState.CALL_ENDED if end_flag else CallState.LINK_DISPATCHED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_MIDCALL_LINK_SENT",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities=entities,
                 dispatched_link=paylink_payload,
-                call_ended=True,
+                call_ended=end_flag,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
 
         # ------------------------------------------------------------------
-        # BRANCH 4: ALREADY_PAID (Safety Rule: Immediate Freeze)
+        # BRANCH 4: ALREADY_PAID (Hard Compliance Stop: Immediate Freeze)
         # ------------------------------------------------------------------
         if intent == VoiceIntent.ALREADY_PAID:
             self.call_state = CallState.DISPUTE_FROZEN
             self.case_state = CaseState.DISPUTED
 
-            # Generate Dispute Recon Task for human accounts team
             task = DisputeReconTask(
                 task_id=f"recon_{self.case_id}_{int(time.time())}",
                 case_id=self.case_id,
@@ -508,38 +704,44 @@ class HinglishVoiceSimulator:
             )
             self.dispute_task = task
 
-            # Attempt hook to engine.execution.dispute if present
             try:
                 from engine.execution.dispute import freeze_and_create_recon_task
                 freeze_and_create_recon_task(self.case_id, "already_paid", customer_utterance)
             except Exception:
                 pass
 
-            resp = generate_hinglish_response(
-                intent="ALREADY_PAID",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="ALREADY_PAID",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
             result = SimulationTurnResult(
                 call_state=CallState.CALL_ENDED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_DISPUTE_FREEZE_TRIGGERED",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities=entities,
                 dispute_task=task,
                 call_ended=True,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
 
         # ------------------------------------------------------------------
-        # BRANCH 5: INVOICE_DISPUTE
+        # BRANCH 5: INVOICE_DISPUTE (Hard Compliance Stop: Immediate Freeze)
         # ------------------------------------------------------------------
         if intent == VoiceIntent.INVOICE_DISPUTE:
             self.call_state = CallState.INVOICE_DISPUTE_FROZEN
@@ -556,201 +758,139 @@ class HinglishVoiceSimulator:
             )
             self.dispute_task = task
 
-            resp = generate_hinglish_response(
-                intent="INVOICE_DISPUTE",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="INVOICE_DISPUTE",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
             result = SimulationTurnResult(
                 call_state=CallState.CALL_ENDED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_INVOICE_DISPUTE_FREEZE",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities=entities,
                 dispute_task=task,
                 call_ended=True,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
 
         # ------------------------------------------------------------------
-        # BRANCH 6: ANGER_HOSTILITY
+        # BRANCH 6: ANGER_HOSTILITY (Hard Compliance Stop: 7-Day Hold)
         # ------------------------------------------------------------------
         if intent == VoiceIntent.ANGER_HOSTILITY:
             self.call_state = CallState.HOSTILITY_DEESCALATED
             self.case_state = CaseState.POLICY_BLOCKED
             self.contact_hold_days = 7
 
-            resp = generate_hinglish_response(
-                intent="ANGER_HOSTILITY",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="ANGER_HOSTILITY",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
             result = SimulationTurnResult(
                 call_state=CallState.CALL_ENDED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_HOSTILITY_7DAY_DND_APPLIED",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities={"contact_hold_days": 7, "escalated_to": "Senior Escalations Manager"},
                 call_ended=True,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
 
         # ------------------------------------------------------------------
-        # BRANCH 7: OPT_OUT
+        # BRANCH 7: OPT_OUT (Hard Compliance Stop: Permanent DND)
         # ------------------------------------------------------------------
         if intent == VoiceIntent.OPT_OUT:
             self.call_state = CallState.OPT_OUT_PROCESSED
             self.case_state = CaseState.POLICY_BLOCKED
             self.dnd_opt_out = True
 
-            resp = generate_hinglish_response(
-                intent="OPT_OUT",
-                customer_name=self.customer_name,
-                amount=self.amount,
-                phone_masked=self.phone_masked,
-                customer_utterance=customer_utterance,
-            )
+            if custom_agent_reply:
+                reply_text = custom_agent_reply
+            else:
+                resp = generate_hinglish_response(
+                    intent="OPT_OUT",
+                    customer_name=self.customer_name,
+                    amount=self.amount,
+                    phone_masked=self.phone_masked,
+                    customer_utterance=customer_utterance,
+                )
+                reply_text = resp["text"]
+                llm_source = resp.get("source", llm_source)
 
+            self.dialogue_turns.append({"role": "Agent", "text": reply_text})
             result = SimulationTurnResult(
                 call_state=CallState.CALL_ENDED,
                 case_state=self.case_state,
                 detected_intent=intent,
                 confidence=confidence,
                 fired_policy_rule="RULE_DND_OPT_OUT_RECORDED",
-                agent_response=resp["text"],
+                agent_response=reply_text,
                 extracted_entities={"dnd_status": "REGISTERED_PERMANENT"},
                 call_ended=True,
                 customer_utterance=customer_utterance,
+                llm_source=llm_source,
             )
             self.history.append(result)
             return result
 
         # ------------------------------------------------------------------
-        # BRANCH 8: CLARIFY / RE-ASK
+        # BRANCH 8: CLARIFY / CONVERSATIONAL RE-ASK
         # ------------------------------------------------------------------
-        self.call_state = CallState.GREETING_STAGED
-        resp = generate_hinglish_response(
-            intent="CLARIFY",
-            customer_name=self.customer_name,
-            amount=self.amount,
-            phone_masked=self.phone_masked,
-            customer_utterance=customer_utterance,
-        )
+        self.call_state = CallState.IN_CONVERSATION
+        if custom_agent_reply:
+            reply_text = custom_agent_reply
+        else:
+            resp = generate_hinglish_response(
+                intent="CLARIFY",
+                customer_name=self.customer_name,
+                amount=self.amount,
+                phone_masked=self.phone_masked,
+                customer_utterance=customer_utterance,
+            )
+            reply_text = resp["text"]
+            llm_source = resp.get("source", llm_source)
 
+        self.dialogue_turns.append({"role": "Agent", "text": reply_text})
         result = SimulationTurnResult(
             call_state=self.call_state,
             case_state=self.case_state,
             detected_intent=intent,
             confidence=confidence,
             fired_policy_rule="RULE_CLARIFICATION_REASK",
-            agent_response=resp["text"],
+            agent_response=reply_text,
             extracted_entities=entities,
             call_ended=False,
             customer_utterance=customer_utterance,
+            llm_source=llm_source,
         )
         self.history.append(result)
         return result
-
-
-def run_interactive_cli():
-    """
-    Interactive Terminal Simulator for Demonstrating Hinglish Recovery Calls.
-    Allows testing preset Indian customer responses or free-form text input.
-    """
-    sim = HinglishVoiceSimulator(
-        case_id="rec_case_89f02a",
-        customer_name="Rohan Gupta",
-        phone="+91 98765 43210",
-        amount=14500.0,
-    )
-
-    print("================================================================================")
-    print("      BACKSTOP AI: HINGLISH VOICE RECOVERY SIMULATOR (CLI INTERACTION)         ")
-    print("================================================================================")
-    print(f"Target Case: {sim.case_id} | Customer: {sim.customer_name}")
-    print(f"Phone: {sim.phone_masked} | Balance at Risk: INR {sim.amount:,.2f}")
-    print("State Machine: Deterministic Policy Engine with Instant Compliance Guardrails")
-    print("================================================================================\n")
-
-    # Step 1: Outbound greeting
-    init_step = sim.start_call()
-    print("[SYSTEM]: Outbound recovery call connected.")
-    print(f"AGENT  : \"{init_step.agent_response}\"\n")
-
-    # Interactive loop
-    while not sim.history[-1].call_ended:
-        print("--------------------------------------------------------------------------------")
-        print("CHOOSE A REALISTIC INDIAN CUSTOMER PRESET OR TYPE YOUR OWN UTTERANCE:")
-        for idx, item in enumerate(CustomerObjection, 1):
-            print(f"  [{idx}] {item['phrase']} ({item['label']})")
-        print("  [C] Custom free-text input")
-        print("  [Q] Exit call")
-        print("--------------------------------------------------------------------------------")
-
-        choice = input("Enter choice (1-7, C, or Q): ").strip()
-        if choice.lower() == "q":
-            print("Simulator exited by user.")
-            break
-
-        customer_text = ""
-        if choice in [str(i) for i in range(1, len(CustomerObjection) + 1)]:
-            customer_text = CustomerObjection[int(choice) - 1]["phrase"]
-        elif choice.lower() == "c":
-            customer_text = input("Customer says: ").strip()
-        else:
-            # Check if user directly typed text instead of menu number
-            customer_text = choice
-
-        if not customer_text:
-            continue
-
-        print(f"\nCUSTOMER: \"{customer_text}\"")
-
-        # Execute turn
-        step = sim.step(customer_text)
-
-        # Print Guardrail Inspector sidecar
-        print("\n+--- [GUARDRAIL INSPECTOR SIDECAR] ---------------------------------------------+")
-        print(f"| Detected Intent    : {step.detected_intent.value:<56} |")
-        print(f"| Confidence Score   : {step.confidence * 100:.1f}%{'':<51} |")
-        print(f"| Fired Policy Rule  : {step.fired_policy_rule:<56} |")
-        print(f"| Case State Change  : {sim.case_state.value:<56} |")
-
-        if step.ptp_record:
-            ptp_info = f"Date: {step.ptp_record.promised_date} | Reminder: 09:00 AM | Outreach Frozen"
-            print(f"| PTP Registered     : {ptp_info:<56} |")
-
-        if step.dispute_task:
-            disp_info = f"Type: {step.dispute_task.dispute_type} | Task: {step.dispute_task.task_id[:16]}..."
-            print(f"| Dispute Recon Task : {disp_info:<56} |")
-
-        if step.dispatched_link:
-            link_info = f"{step.dispatched_link['pay_link']} (Receipt: {step.dispatched_link['delivery_receipt'][:18]}...)"
-            print(f"| WhatsApp PayLink   : {link_info:<56} |")
-
-        print("+-------------------------------------------------------------------------------+\n")
-
-        # Print agent spoken reply
-        print(f"AGENT   : \"{step.agent_response}\"\n")
-
-        if step.call_ended:
-            print(f"[SYSTEM]: Call completed safely under state: {step.call_state.value}. Terminal status reached.\n")
-            break
-
-
-if __name__ == "__main__":
-    run_interactive_cli()
