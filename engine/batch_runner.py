@@ -1,70 +1,214 @@
 """
-Batch runner: runs the full agent over failed transactions and compares
-recovered revenue against two baselines:
-  - do_nothing: no recovery action taken
-  - naive_retry: always immediately retry, regardless of root cause
-
-This produces the money slide: $ recovered and % lift over baseline.
+Batch Runner with Crash-Resume Guarantees:
+Executes recovery cases through the Transactional Outbox and Recovery Ledger.
+Provides idempotent resumption and verifiable financial consistency.
 """
-import random
-import pandas as pd
+from typing import List, Dict, Any, Optional, Tuple
+import time
+
+from engine.models import RecoveryCase, ActionType, CaseState, LeakType
+from engine.ledger import RecoveryLedger
+from engine.execution.outbox import TransactionalOutbox
+from engine.execution.providers import PROVIDER_LOG
+from engine.systemic import SystemicDetector
+from engine.diagnosis import DiagnosisEngine
 from engine.policy import PolicyEngine
-from engine.recovery_value import RECOVERY_PROB_TABLE
+from engine.measurement import simulate_recovery_outcome
+from engine.config import CHANNEL_UNIT_COSTS, HUMAN_REVIEW_FEE, DEFAULT_RUN_ID
 
 
-def run_batch(df_failed: pd.DataFrame, seed=7):
-    random.seed(seed)
-    policy = PolicyEngine()
-    invoice_state = {}
+class MidBatchCrashException(Exception):
+    """Simulated crash during mid-batch execution."""
+    pass
 
-    results = []
-    for _, row in df_failed.iterrows():
-        txn = row.to_dict()
-        invoice_id = txn["txn_id"]
-        state = invoice_state.setdefault(invoice_id, {"attempts": 0, "opt_out": False})
 
-        decision = policy.evaluate(txn, state)
-        state["attempts"] = decision.attempt_number
+def run_batch(
+    cases: List[RecoveryCase],
+    run_id: str = DEFAULT_RUN_ID,
+    ledger: Optional[RecoveryLedger] = None,
+    outbox: Optional[TransactionalOutbox] = None,
+    policy_engine: Optional[PolicyEngine] = None,
+    diagnosis_engine: Optional[DiagnosisEngine] = None,
+    kill_at_case: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Executes a batch of cases with idempotency and crash recovery support.
+    If kill_at_case is passed, abruptly terminates with MidBatchCrashException at that index.
+    """
+    ledger = ledger or RecoveryLedger()
+    outbox = outbox or TransactionalOutbox(ledger)
+    policy = policy_engine or PolicyEngine()
+    diag = diagnosis_engine or DiagnosisEngine()
 
-        results.append({
-            "txn_id": invoice_id,
-            "amount": txn["amount"],
-            "root_cause": decision.root_cause,
-            "chosen_action": decision.chosen_action,
-            "expected_value": decision.expected_value,
-            "recovered_agent": getattr(decision, "recovered", False),
-            "revenue_recovered_agent": getattr(decision, "revenue_recovered", 0),
+    ledger.create_run(run_id, description=f"Batch execution for {len(cases)} cases")
+
+    processed_cases = []
+    skipped_count = 0
+    executed_count = 0
+    gross_recovered = 0.0
+    channel_costs = 0.0
+    discounts_given = 0.0
+    human_costs = 0.0
+
+    for idx, case in enumerate(cases, start=1):
+        # 1. Simulate Mid-Batch Kill if requested
+        if kill_at_case is not None and idx == kill_at_case:
+            # Leave this case in flight before raising crash
+            raise MidBatchCrashException(f"Abrupt process termination at case #{idx} ({case.case_id})")
+
+        # 2. Control Group (Organic only)
+        if case.is_control_group:
+            rec, _ = simulate_recovery_outcome(case, ActionType.DO_NOTHING, run_id)
+            if rec:
+                gross_recovered += case.amount
+            processed_cases.append({
+                "case_id": case.case_id,
+                "status": "CONTROL_GROUP",
+                "recovered": rec,
+                "amount": case.amount,
+            })
+            continue
+
+        # 3. Multi-Leak Diagnosis
+        diagnosis = diag.diagnose_case(case)
+
+        # 4. Deterministic Policy Gate
+        decision = policy.evaluate(case, diagnosis.predicted_cause, diagnosis.confidence)
+        if not decision.allowed:
+            rec, _ = simulate_recovery_outcome(case, ActionType.DO_NOTHING, run_id)
+            if rec:
+                gross_recovered += case.amount
+            processed_cases.append({
+                "case_id": case.case_id,
+                "status": "POLICY_BLOCKED",
+                "reason": decision.blocked_reason,
+                "recovered": rec,
+                "amount": case.amount,
+            })
+            continue
+
+        chosen_action = decision.chosen_action
+        attempt_number = case.metadata.get("prior_failures", 0) + 1
+
+        # 5. Idempotent Begin in Ledger
+        key, should_execute, existing_state = ledger.begin_action(
+            run_id=run_id,
+            customer_id=case.customer_id,
+            case_id=case.case_id,
+            attempt_number=attempt_number,
+            action=chosen_action.value,
+            root_cause=diagnosis.predicted_cause,
+            expected_value=case.amount,
+            detail={"diagnosed_cause": diagnosis.predicted_cause},
+        )
+
+        if not should_execute:
+            # Idempotent Skip!
+            skipped_count += 1
+            # Account for costs and revenue of the previously executed action
+            cost = CHANNEL_UNIT_COSTS.get(chosen_action.value, 0.0)
+            channel_costs += cost
+            if decision.requires_human_approval:
+                human_costs += HUMAN_REVIEW_FEE
+
+            disc = 0.0
+            if chosen_action == ActionType.DISCOUNT_INCENTIVE:
+                disc = min(case.amount * 0.08, 500.0)
+                discounts_given += disc
+
+            rec, _ = simulate_recovery_outcome(case, chosen_action, run_id)
+            if rec:
+                gross_recovered += case.amount
+
+            processed_cases.append({
+                "case_id": case.case_id,
+                "status": "SKIPPED",
+                "action": chosen_action.value,
+                "existing_state": existing_state,
+                "recovered": rec,
+                "amount": case.amount,
+            })
+            continue
+
+        # 6. Dispatch via Outbox
+        outbox_key, outbox_state, result = outbox.dispatch_action(
+            run_id=run_id,
+            case=case,
+            action=chosen_action,
+            attempt_number=attempt_number,
+        )
+
+        if outbox_state == "SKIPPED":
+            skipped_count += 1
+            cost = CHANNEL_UNIT_COSTS.get(chosen_action.value, 0.0)
+            channel_costs += cost
+            if decision.requires_human_approval:
+                human_costs += HUMAN_REVIEW_FEE
+
+            disc = 0.0
+            if chosen_action == ActionType.DISCOUNT_INCENTIVE:
+                disc = min(case.amount * 0.08, 500.0)
+                discounts_given += disc
+
+            rec, _ = simulate_recovery_outcome(case, chosen_action, run_id)
+            if rec:
+                gross_recovered += case.amount
+
+            processed_cases.append({
+                "case_id": case.case_id,
+                "status": "SKIPPED",
+                "action": chosen_action.value,
+                "recovered": rec,
+                "amount": case.amount,
+            })
+            continue
+
+        # 7. Complete Action & Outcome Scoring
+        executed_count += 1
+        ledger.complete_action(run_id, key, success=True, result_detail=result)
+        ledger.log_audit_event(
+            run_id=run_id,
+            case_id=case.case_id,
+            from_state="READY",
+            to_state="EXECUTING",
+            rule_or_action=chosen_action.value,
+            details=result,
+        )
+
+        cost = CHANNEL_UNIT_COSTS.get(chosen_action.value, 0.0)
+        channel_costs += cost
+        if decision.requires_human_approval:
+            human_costs += HUMAN_REVIEW_FEE
+
+        # Expected discount if discount_incentive was chosen
+        disc = 0.0
+        if chosen_action == ActionType.DISCOUNT_INCENTIVE:
+            disc = min(case.amount * 0.08, 500.0)
+            discounts_given += disc
+
+        rec, _ = simulate_recovery_outcome(case, chosen_action, run_id)
+        if rec:
+            gross_recovered += case.amount
+
+        processed_cases.append({
+            "case_id": case.case_id,
+            "status": "EXECUTED",
+            "action": chosen_action.value,
+            "recovered": rec,
+            "amount": case.amount,
         })
 
-    out = pd.DataFrame(results)
+    net_recovered = gross_recovered - channel_costs - discounts_given - human_costs
 
-    def naive_outcome(row):
-        p = RECOVERY_PROB_TABLE.get(row["root_cause"], {}).get("retry_immediate", 0.1)
-        return random.random() < p
-
-    out["recovered_naive"] = out.apply(naive_outcome, axis=1)
-    out["revenue_recovered_naive"] = out.apply(
-        lambda r: r["amount"] if r["recovered_naive"] else 0, axis=1
-    )
-
-    summary = {
-        "total_at_risk_revenue": round(out["amount"].sum(), 2),
-        "recovered_do_nothing": 0.0,
-        "recovered_naive_retry": round(out["revenue_recovered_naive"].sum(), 2),
-        "recovered_agent": round(out["revenue_recovered_agent"].sum(), 2),
+    return {
+        "run_id": run_id,
+        "total_cases": len(cases),
+        "executed_count": executed_count,
+        "skipped_count": skipped_count,
+        "gross_recovered": round(gross_recovered, 2),
+        "channel_costs": round(channel_costs, 2),
+        "discounts_given": round(discounts_given, 2),
+        "human_costs": round(human_costs, 2),
+        "net_recovered": round(net_recovered, 2),
+        "processed_cases": processed_cases,
     }
-    summary["lift_over_naive_pct"] = round(
-        100 * (summary["recovered_agent"] - summary["recovered_naive_retry"])
-        / max(summary["recovered_naive_retry"], 1), 1
-    )
-    return out, summary
-
-
-if __name__ == "__main__":
-    df = pd.read_csv("data/transactions.csv")
-    df_failed = df[df["failed"]].copy()
-    df_failed["is_salary_week"] = df_failed["is_salary_week"].astype(bool)
-    out, summary = run_batch(df_failed)
-    print(summary)
-    out.to_csv("data/batch_results.csv", index=False)
-    print(f"\nSaved {len(out)} decisions to batch_results.csv")

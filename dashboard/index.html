@@ -1,428 +1,548 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Backstop — Revenue Recovery Agent</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --paper:#F1EDE1;
-    --paper-raised:#F8F5EC;
-    --sidebar:#E9E3D0;
-    --ink:#242119;
-    --ink-soft:#5B5648;
-    --rule:#CFC7AE;
-    --credit:#2F5C42;
-    --debit:#8A3B2E;
-    --serif:'Source Serif 4', Georgia, serif;
-    --mono:'IBM Plex Mono', monospace;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--serif);}
-  body{display:flex; min-height:100vh;}
-
-  aside{
-    width:300px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--rule);
-    position:sticky; top:0; height:100vh; overflow-y:auto; padding:36px 26px;
-  }
-  .kicker{font-family:var(--mono); font-size:11px; color:var(--ink-soft); letter-spacing:.02em; margin-bottom:8px;}
-  aside h1{font-size:26px; font-weight:600; line-height:1.15; margin:0 0 14px; letter-spacing:-0.01em;}
-  aside .lede{font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); line-height:1.6; margin-bottom:28px;}
-
-  .side-block{margin-bottom:28px; padding-top:22px; border-top:1px solid var(--rule);}
-  .side-block:first-of-type{border-top:none; padding-top:0;}
-  .side-block h3{font-family:var(--mono); font-size:10.5px; text-transform:lowercase; color:var(--ink-soft); margin:0 0 12px; letter-spacing:.03em;}
-
-  .pipe-stage{padding:9px 0; border-bottom:1px solid var(--rule); display:flex; justify-content:space-between; align-items:center;}
-  .pipe-stage:last-child{border-bottom:none;}
-  .pipe-stage .name{font-family:var(--serif); font-size:13.5px; font-weight:600;}
-  .tag{display:inline-block; font-family:var(--mono); font-size:9.5px; padding:2px 6px; border:1px solid; letter-spacing:.02em; white-space:nowrap;}
-  .tag-ml{color:#3B5E8A; border-color:#3B5E8A;}
-  .tag-rules{color:var(--ink-soft); border-color:var(--rule);}
-  .tag-math{color:var(--credit); border-color:var(--credit);}
-  .tag-llm{color:#8A5A2B; border-color:#8A5A2B;}
-
-  .side-stat{padding:10px 0; border-bottom:1px solid var(--rule);}
-  .side-stat:last-child{border-bottom:none;}
-  .side-stat .label{font-family:var(--mono); font-size:10px; color:var(--ink-soft);}
-  .side-stat .value{font-family:var(--mono); font-size:19px; font-weight:600; margin-top:3px;}
-  .side-stat .value.credit{color:var(--credit);}
-
-  .jumplist a{
-    display:block; font-family:var(--mono); font-size:11.5px; color:var(--ink);
-    padding:6px 0; text-decoration:none; border-bottom:1px solid transparent;
-  }
-  .jumplist a:hover{border-bottom-color:var(--ink);}
-
-  main{flex:1; padding:44px 56px 120px; max-width:1400px;}
-  section{margin:0 0 56px; scroll-margin-top:24px;}
-  h2{font-family:var(--serif); font-size:23px; font-weight:600; margin:0 0 6px;}
-  .desc{font-family:var(--mono); font-size:12px; color:var(--ink-soft); margin-bottom:20px; line-height:1.6; max-width:760px;}
-
-  .grid2{display:grid; grid-template-columns:1.15fr .85fr; gap:32px;}
-  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:28px;}
-  canvas{max-height:260px;}
-
-  table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12.5px;}
-  th{text-align:left; font-weight:500; color:var(--ink-soft); padding:9px 12px; border-bottom:1px solid var(--ink); font-size:10.5px;}
-  td{padding:10px 12px; border-bottom:1px solid var(--rule);}
-  tr:hover td{background:var(--paper-raised);}
-  .action-tag{font-size:10.5px; padding:2px 7px; border:1px solid; white-space:nowrap;}
-  .a-retry_delayed{color:#8A5A2B; border-color:#8A5A2B;}
-  .a-retry_immediate{color:var(--ink-soft); border-color:var(--rule);}
-  .a-reminder_sms{color:#3B5E8A; border-color:#3B5E8A;}
-  .a-human_escalation{color:var(--credit); border-color:var(--credit);}
-  .outcome-recovered{color:var(--credit);}
-  .outcome-not{color:var(--ink-soft);}
-
-  .card{border:1px solid var(--rule); background:var(--paper-raised); padding:26px 28px;}
-
-  .form-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px 20px; margin-bottom:20px;}
-  .field label{display:block; font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-bottom:5px;}
-  .field input, .field select{
-    width:100%; font-family:var(--mono); font-size:13px; padding:9px 10px;
-    background:var(--paper); border:1px solid var(--ink); color:var(--ink);
-  }
-  .btn{
-    font-family:var(--mono); font-size:12.5px; background:var(--ink); color:var(--paper);
-    border:none; padding:11px 20px; cursor:pointer; letter-spacing:.02em;
-  }
-  .btn:hover{background:#3a3527;}
-  .btn.secondary{background:transparent; color:var(--ink); border:1px solid var(--ink);}
-  .result-box{margin-top:22px; padding-top:20px; border-top:1px solid var(--rule); display:none;}
-  .result-box.show{display:block;}
-  .diag-line{font-family:var(--mono); font-size:13px; margin-bottom:16px;}
-  .diag-line .cause{font-weight:600; font-size:17px;}
-  .ev-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:8px;}
-  .ev-card{border:1px solid var(--rule); padding:12px 14px; font-family:var(--mono); font-size:12px;}
-  .ev-card.top{border-color:var(--credit); background:var(--paper);}
-  .ev-card .aname{font-weight:600; margin-bottom:6px;}
-  .message-box{margin-top:18px; padding:18px 20px; background:var(--paper); border:1px dashed var(--ink-soft); font-family:var(--serif); font-size:15px; line-height:1.55; font-style:italic; max-width:640px;}
-  .message-meta{font-family:var(--mono); font-size:10.5px; color:var(--ink-soft); margin-top:8px;}
-  .lang-toggle{display:flex; gap:0; margin-bottom:14px;}
-  .lang-toggle button{font-family:var(--mono); font-size:11px; padding:7px 14px; border:1px solid var(--ink); background:transparent; cursor:pointer; color:var(--ink);}
-  .lang-toggle button.active{background:var(--ink); color:var(--paper);}
-
-  #audit-log{max-height:280px; overflow-y:auto; font-family:var(--mono); font-size:11.5px; line-height:1.9;}
-  .log-line{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--rule); padding:2px 0;}
-  .log-line .ts{color:var(--ink-soft);}
-  .log-line .st-EXECUTED{color:var(--credit);}
-  .log-line .st-SKIPPED{color:#8A5A2B;}
-  .log-line .st-PENDING{color:var(--ink-soft);}
-
-  .footnote{font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-top:10px; line-height:1.6;}
-
-  @media (max-width: 1000px){
-    body{flex-direction:column;}
-    aside{width:100%; height:auto; position:relative;}
-    main{padding:32px 24px;}
-    .grid2, .grid3, .form-grid, .ev-grid{grid-template-columns:1fr;}
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Backstop — Enterprise Revenue Recovery Command Center</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Operations Command Center and Policy Lab for Backstop AI Revenue Recovery Agent">
+  <!-- Chart.js 4.4 CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<aside>
-  <div class="kicker">backstop</div>
-  <h1>Backstop</h1>
-  <div class="lede" style="margin-bottom:6px; font-style:italic;">Revenue Recovery Agent</div>
-  <div class="lede">Diagnosis, economics, and execution for failed payments — every figure is reproduced from the same batch run.</div>
-
-  <div class="side-block">
-    <h3>pipeline</h3>
-    <div class="pipe-stage"><span class="name">Diagnosis</span><span class="tag tag-ml">ML+RULES</span></div>
-    <div class="pipe-stage"><span class="name">Recovery value</span><span class="tag tag-math">EV MATH</span></div>
-    <div class="pipe-stage"><span class="name">Stopping rules</span><span class="tag tag-rules">RULES</span></div>
-    <div class="pipe-stage"><span class="name">Ledger</span><span class="tag tag-rules">IDEMPOTENT</span></div>
-    <div class="pipe-stage"><span class="name">Message</span><span class="tag tag-llm">GEMINI</span></div>
-  </div>
-
-  <div class="side-block">
-    <h3>live totals</h3>
-    <div class="side-stat"><div class="label">total at-risk revenue</div><div class="value" id="stat-total">—</div></div>
-    <div class="side-stat"><div class="label">recovered by agent</div><div class="value credit" id="stat-agent">—</div></div>
-    <div class="side-stat"><div class="label">lift over naive retry</div><div class="value credit" id="stat-lift">—</div></div>
-  </div>
-
-  <div class="side-block">
-    <h3>jump to</h3>
-    <div class="jumplist">
-      <a href="#revenue">Recovered revenue</a>
-      <a href="#calibration">Diagnosis calibration</a>
-      <a href="#try">Try a transaction</a>
-      <a href="#decisions">Sample decisions</a>
-      <a href="#fraud">Fraud model (real data)</a>
-      <a href="#audit">Audit trail</a>
-    </div>
-  </div>
-</aside>
-
-<main>
-
-<section id="revenue" class="grid2">
-  <div>
-    <h2>Recovered revenue by strategy</h2>
-    <div class="desc">Same synthetic batch of failed transactions, three strategies compared.</div>
-    <canvas id="revenueChart"></canvas>
-  </div>
-  <div id="calibration">
-    <h2>Diagnosis calibration</h2>
-    <div class="desc">Predicted confidence vs. actual correct-rate. Points near the line mean the probability is trustworthy, not just the label.</div>
-    <canvas id="calChart"></canvas>
-    <div class="footnote" id="cal-footnote"></div>
-  </div>
-</section>
-
-<section id="try">
-  <h2>Try a transaction</h2>
-  <div class="desc">Runs the real diagnosis model and Recovery Value Model live against whatever you enter, then drafts the customer message for the chosen action.</div>
-  <div class="card">
-    <div class="form-grid">
-      <div class="field"><label>Amount (₹)</label><input type="number" id="in-amount" value="45000"></div>
-      <div class="field"><label>Days to card expiry</label><input type="number" id="in-expiry" value="150"></div>
-      <div class="field"><label>Prior failures</label><input type="number" id="in-prior" value="3"></div>
-      <div class="field"><label>Account balance proxy</label><input type="number" step="0.1" id="in-balance" value="0.5"></div>
-      <div class="field"><label>Bank risk tier</label>
-        <select id="in-bank"><option value="low">low</option><option value="medium">medium</option><option value="high" selected>high</option></select>
+  <!-- ================================================================= -->
+  <!-- SIDEBAR NAVIGATION -->
+  <!-- ================================================================= -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <div class="brand-badge">SYNTHETIC DEMO</div>
+      <div class="brand-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        BACKSTOP
       </div>
-      <div class="field"><label>Salary week?</label>
-        <select id="in-salary"><option value="true">yes</option><option value="false" selected>no</option></select>
-      </div>
-      <div class="field"><label>Customer name</label><input type="text" id="in-name" value="Ananya"></div>
+      <div class="brand-subtitle">Revenue recovery operations</div>
     </div>
-    <button class="btn" onclick="runDiagnosis()">Diagnose &amp; rank interventions</button>
 
-    <div class="result-box" id="result-box">
-      <div class="diag-line">Root cause: <span class="cause" id="res-cause">—</span> &nbsp; <span id="res-conf" class="footnote"></span></div>
-      <div class="ev-grid" id="ev-table"></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Operations</div>
+      <a href="#section-command-center" class="nav-link active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Command Center
+      </a>
+      <a href="#section-policy-lab" class="nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        The Policy Lab
+      </a>
+      <a href="#section-active-cases" class="nav-link" onclick="switchTab('cases')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Active Cases
+        <span class="nav-counter">320</span>
+      </a>
 
-      <div style="margin-top:22px;">
-        <div class="lang-toggle">
-          <button id="lang-en" class="active" onclick="setLang('english')">English</button>
-          <button id="lang-hi" onclick="setLang('hinglish')">Hinglish</button>
+      <div class="nav-section-title" style="margin-top:10px;">Escalation & Safety</div>
+      <a href="#section-active-cases" class="nav-link" onclick="switchTab('human_queue')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Human Review Queue
+        <span class="nav-counter alert-counter" id="sidebar-hq-counter">12</span>
+      </a>
+      <a href="#section-active-cases" class="nav-link" onclick="switchTab('suppressed')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Cases NOT Chased
+        <span class="nav-counter">64</span>
+      </a>
+
+      <div class="nav-section-title" style="margin-top:10px;">Interactive Demos</div>
+      <a href="/voice" target="_blank" class="nav-link" style="color:#0284C7; font-weight:600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        🎙️ Voice Simulator ↗
+      </a>
+      <a href="/report" target="_blank" class="nav-link" style="color:#16A34A; font-weight:600;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Recovery report ↗
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="engine-status-pill">
+        <div class="status-dot-pulse"></div>
+        <span>SIMULATED LEDGER</span>
+      </div>
+      <div style="font-size:10.5px; color:#64748B; margin-top:4px;">SEED 42 · DEMO ENVIRONMENT</div>
+    </div>
+  </aside>
+
+  <!-- ================================================================= -->
+  <!-- MAIN APPLICATION VIEW -->
+  <!-- ================================================================= -->
+  <main class="app-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+      <div class="topbar-breadcrumbs">
+        <span class="breadcrumb-root">Operations</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-curr">Revenue Recovery Command Center</span>
+      </div>
+      <div class="topbar-actions">
+        <a href="/voice" target="_blank" class="btn btn-sm" style="background:#0284C7; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 12px; border-radius:4px;">
+          Voice simulation ↗
+        </a>
+        <a href="/report" target="_blank" class="btn btn-sm" style="background:#16A34A; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 12px; border-radius:4px;">
+          Recovery report ↗
+        </a>
+        <span class="badge-pill" style="background:#F0FDF4; border:1px solid #BBF7D0; color:#15803D;">
+          Seeded holdout simulation
+        </span>
+        <button class="btn-icon" id="theme-toggle-btn" title="Toggle colour theme" aria-label="Toggle colour theme">◐</button>
+        <button class="btn btn-outline btn-sm" onclick="loadOverview(); loadCases(); loadSystemicAlerts(); showToast('Refreshed live ledger metrics');">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Refresh data
+        </button>
+      </div>
+    </header>
+
+    <div class="content-container">
+
+      <!-- ============================================================= -->
+      <!-- SECTION 2: SYSTEMIC DEGRADATION ALERT BANNER -->
+      <!-- ============================================================= -->
+      <div id="systemic-alert-wrapper"></div>
+
+      <!-- ============================================================= -->
+      <!-- SECTION 1: REVENUE-AT-RISK COMMAND CENTER -->
+      <!-- ============================================================= -->
+      <section id="section-command-center">
+        <div class="section-header">
+          <div>
+            <h1 class="section-title">Revenue recovery, safely prioritized</h1>
+            <p class="section-desc">A seeded synthetic evaluation of recovery value, customer safety, and policy decisions.</p>
+          </div>
+          <span class="badge-pill" style="background:#EFF6FF; border:1px solid #BFDBFE; color:#1D4ED8;">
+            Simulated evaluation result
+          </span>
         </div>
-        <button class="btn secondary" onclick="draftMessage()">Draft recovery message</button>
-        <div class="message-box" id="message-box" style="display:none;"></div>
-        <div class="message-meta" id="message-meta"></div>
+
+        <!-- Headline Metrics Bar -->
+        <div class="headline-grid">
+          <div class="metric-card">
+            <div class="metric-label-row">
+              <span class="metric-label">Total Revenue at Risk</span>
+              <span class="metric-icon-badge badge-risk">⚠️</span>
+            </div>
+            <div class="metric-value num-font" id="metric-total-risk">₹54.2L</div>
+            <div class="metric-caption">
+              Across 320 active cases in current batch
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label-row">
+              <span class="metric-label">Simulated Net Recovery</span>
+              <span class="metric-icon-badge badge-rec">₹</span>
+            </div>
+            <div class="metric-value num-font val-emerald" id="metric-total-rec">₹38.7L</div>
+            <div class="metric-caption">
+              Derived from this seeded demonstration run
+            </div>
+          </div>
+
+          <div class="metric-card accent-card">
+            <div class="metric-label-row">
+              <span class="metric-label">Incremental Lift vs Control</span>
+              <span class="metric-icon-badge badge-lift">📈</span>
+            </div>
+            <div class="metric-value num-font val-blue" id="metric-lift">+48.2%</div>
+            <div class="metric-caption">
+              <span class="lift-pill num-font" id="metric-ci">[95% CI: 43.1% – 53.3%]</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label-row">
+              <span class="metric-label">Simulated Recovery Cost & ROI</span>
+              <span class="metric-icon-badge badge-roi">⚡</span>
+            </div>
+            <div class="metric-value num-font" id="metric-cost-roi" style="font-size:22px;">₹28,400 → 136x ROI</div>
+            <div class="metric-caption">
+              Discounts capped at 10% margin guardrail
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Leak Category Cards -->
+        <div class="leak-cards-grid" id="leak-cards-container">
+          <!-- Populated by loadOverview() -->
+        </div>
+
+        <!-- Dual Chart Row -->
+        <div style="background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:36px; box-shadow:var(--shadow-sm);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div>
+              <div style="font-size:15px; font-weight:700; color:var(--text-main);">Multi-Leak Breakdown: At-Risk vs Recovered</div>
+              <div style="font-size:12px; color:var(--text-muted);">Comparing baseline at-risk volume against autonomous recovery per revenue leak type</div>
+            </div>
+            <span class="leak-badge">Seeded evaluation</span>
+          </div>
+          <div class="chart-wrapper" style="height:260px;">
+            <canvas id="leakChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- SECTION 3: THE POLICY LAB (INTERACTIVE SLIDERS) -->
+      <!-- ============================================================= -->
+      <section id="section-policy-lab" class="policy-lab-panel">
+        <div class="policy-lab-top">
+          <div>
+            <div class="policy-lab-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              Policy scenario explorer
+            </div>
+            <h2 style="font-family:var(--font-display); font-size:18px; font-weight:700; color:var(--text-main); margin-top:6px;">
+              Policy Lab: Scenario Explorer
+            </h2>
+            <p style="font-size:12.5px; color:var(--text-muted);">
+              Adjust strategic operating levers live. Watch trade-offs between recovery yield, outreach costs, customer friction, and compliance recalculate instantly.
+            </p>
+          </div>
+          <div class="preset-pills">
+            <button class="preset-btn active" onclick="applyPolicyPreset('balanced')">Balanced Fintech</button>
+            <button class="preset-btn" onclick="applyPolicyPreset('aggressive')">Aggressive Growth</button>
+            <button class="preset-btn" onclick="applyPolicyPreset('compliance')">Strict Compliance</button>
+          </div>
+        </div>
+
+        <div class="policy-grid">
+          <!-- Sliders Column -->
+          <div class="sliders-col">
+            <!-- 1. Max Retry Limit -->
+            <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Max Retry Limit</div>
+                  <div class="slider-desc">Network & UPI retry ceiling before write-off</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-retry">3 attempts</span>
+              </div>
+              <input type="range" min="1" max="5" value="3" class="range-slider" id="slider-retry">
+            </div>
+
+            <!-- 2. Max Discount Cap -->
+            <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Max Discount Cap</div>
+                  <div class="slider-desc">Ceiling on abandoned cart incentive incentives</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-discount">10%</span>
+              </div>
+              <input type="range" min="0" max="20" value="10" step="1" class="range-slider" id="slider-discount">
+            </div>
+
+            <!-- 3. Quiet Hours Toggle -->
+            <div class="slider-group">
+              <div class="toggle-row">
+                <div>
+                  <div class="slider-title">Quiet Hours Enforcement</div>
+                  <div class="slider-desc">Blocks customer outreach between 8:00 PM – 8:00 AM</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span class="slider-value-badge" id="val-quiet-hours">Enforced</span>
+                  <label class="switch">
+                    <input type="checkbox" id="switch-quiet-hours" checked>
+                    <span class="slider-switch"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Minimum Case Value -->
+            <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Minimum Case Value to Chase</div>
+                  <div class="slider-desc">Prunes low-margin micro-transactions below cost floor</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-min-val">₹200</span>
+              </div>
+              <input type="range" min="0" max="1000" value="200" step="50" class="range-slider" id="slider-min-val">
+            </div>
+
+            <!-- 5. Human Review Threshold -->
+            <div class="slider-group">
+              <div class="slider-label-row">
+                <div>
+                  <div class="slider-title">Human Review Floor</div>
+                  <div class="slider-desc">High-value tickets automatically routed to compliance escrow</div>
+                </div>
+                <span class="slider-value-badge num-font" id="val-human-thr">₹50,000</span>
+              </div>
+              <input type="range" min="10000" max="100000" value="50000" step="5000" class="range-slider" id="slider-human-thr">
+            </div>
+          </div>
+
+          <!-- Trade-Off Radar & Impact Column -->
+          <div class="tradeoff-col">
+            <div class="tradeoff-title-row">
+              <span style="font-size:13.5px; font-weight:700;">Live Trade-Off Sensitivity Profile</span>
+              <span class="lift-pill num-font" id="sim-delta-badge">+0.0% vs baseline</span>
+            </div>
+
+            <div class="tradeoff-stats-bar">
+              <div class="mini-stat-box">
+                <div class="mini-stat-label">Projected Net</div>
+                <div class="mini-stat-val val-emerald num-font" id="sim-projected-rec">₹38.7L</div>
+              </div>
+              <div class="mini-stat-box">
+                <div class="mini-stat-label">Projected ROI</div>
+                <div class="mini-stat-val val-blue num-font" id="sim-roi">136x</div>
+              </div>
+              <div class="mini-stat-box">
+                <div class="mini-stat-label">Policy Blocked</div>
+                <div class="mini-stat-val num-font" id="sim-blocked-cases" style="color:#B91C1C;">8 cases</div>
+              </div>
+            </div>
+
+            <div class="chart-wrapper">
+              <canvas id="policyRadarChart"></canvas>
+            </div>
+
+            <div class="simulation-note-box" id="sim-notes-container">
+              <div>• Active policy balances high recovery with regulatory compliance guardrails.</div>
+              <div>• Outreach is simulated; no customer message is sent.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================= -->
+      <!-- SECTION 4, 5, 6: TABS (CASES, HUMAN QUEUE, SUPPRESSED) -->
+      <!-- ============================================================= -->
+      <section id="section-active-cases">
+        <div class="main-tabs-nav">
+          <button class="tab-btn active" data-tab="cases">
+            Active Cases Explorer
+            <span class="tab-counter">320</span>
+          </button>
+          <button class="tab-btn" data-tab="human_queue">
+            Human Review Queue
+            <span class="tab-counter alert-counter" id="hq-tab-counter">12</span>
+          </button>
+          <button class="tab-btn" data-tab="suppressed">
+            Cases NOT to Chase (Trust Signal)
+            <span class="tab-counter" id="suppressed-tab-counter">64</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Active Cases Explorer -->
+        <div class="tab-content-panel active" id="tab-panel-cases">
+          <div class="table-toolbar">
+            <div class="search-input-wrapper">
+              <span class="search-icon-pos">🔍</span>
+              <input type="text" class="search-input" id="search-cases-input" placeholder="Search customer, case ID, or phone...">
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <select class="filter-select" id="filter-leak-type">
+                <option value="">All Leak Types</option>
+                <option value="failed_payment">Failed Payments</option>
+                <option value="abandoned_checkout">Abandoned Checkouts</option>
+                <option value="subscription_mandate">Subscription Mandates</option>
+                <option value="b2b_invoice">B2B Invoices</option>
+              </select>
+
+              <select class="filter-select" id="filter-state">
+                <option value="">All States</option>
+                <option value="RECOVERED">Recovered</option>
+                <option value="EXECUTING">Executing</option>
+                <option value="PROMISED">Promised to Pay</option>
+                <option value="DISPUTED">Disputed</option>
+                <option value="POLICY_BLOCKED">Policy Blocked</option>
+                <option value="READY">Ready</option>
+              </select>
+
+              <select class="filter-select" id="filter-control">
+                <option value="">All Cohorts</option>
+                <option value="false">Treated Cohort</option>
+                <option value="true">Holdout Control Group</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="fintech-table">
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Customer</th>
+                  <th>Leak Type</th>
+                  <th>Amount</th>
+                  <th>Diagnosis</th>
+                  <th>Net EV</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody id="cases-table-body">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+
+            <div class="pagination-bar">
+              <span class="page-info" id="pagination-info">Showing page 1</span>
+              <div class="page-controls">
+                <button class="btn btn-outline btn-sm" id="btn-prev-page">Previous</button>
+                <button class="btn btn-outline btn-sm" id="btn-next-page">Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Human Approval & Dispute Queue -->
+        <div class="tab-content-panel" id="tab-panel-human_queue">
+          <div style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); padding:12px 18px; border-radius:var(--radius-md); margin-bottom:14px; font-size:12.5px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong>Human review queue:</strong> Simulated cases requiring a reviewer decision: high value, active dispute, low confidence, or discount override.
+            </div>
+            <span class="badge-pill badge-state-disputed">OPERATOR ATTENTION REQUIRED</span>
+          </div>
+
+          <div class="table-container">
+            <table class="fintech-table">
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Customer & Amount</th>
+                  <th>Urgency</th>
+                  <th>Escalation Reason</th>
+                  <th>Recommended Intervention</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="human-queue-body">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 3: Cases NOT to Chase (Trust Signal) -->
+        <div class="tab-content-panel" id="tab-panel-suppressed">
+          <div class="alert-banner" style="background:linear-gradient(90deg, #ECFDF5 0%, #F0FDF4 100%); border-color:#A7F3D0; border-left:5px solid #10B981; margin-bottom:16px;" id="suppressed-summary-bar">
+            <!-- Loaded dynamically -->
+          </div>
+
+          <div class="table-container">
+            <table class="fintech-table">
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Customer</th>
+                  <th>Leak Type</th>
+                  <th>Amount</th>
+                  <th>Explicit Stopping Rule Fired</th>
+                  <th>Impact & Preserved Goodwill</th>
+                </tr>
+              </thead>
+              <tbody id="suppressed-table-body">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================================================================= -->
+  <!-- SECTION 4: CASE DRILL-DOWN MODAL ("WHY DID THE AGENT DO THIS?") -->
+  <!-- ================================================================= -->
+  <div class="modal-backdrop" id="case-modal" onclick="if(event.target === this) closeCaseModal()">
+    <div class="drilldown-modal">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span class="leak-badge num-font" id="modal-case-id">CASE-00000</span>
+          <span class="modal-title" id="modal-cust-name">Customer Name</span>
+          <span class="num-font" style="font-size:16px; font-weight:700; color:var(--text-main);" id="modal-amount">₹0</span>
+        </div>
+        <button class="btn-icon" onclick="closeCaseModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="font-size:13px; font-weight:600; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+          <span>EXPLAINABILITY & REASONING CHAIN</span>
+          <span style="font-size:11px; font-family:var(--font-mono); color:var(--primary-accent);">WAL AUDIT TRAIL VERIFIED</span>
+        </div>
+
+        <div class="stepper-timeline">
+          <!-- Step 1: Detect -->
+          <div class="step-card">
+            <div class="step-header">
+              <span class="step-number-tag">STEP 1: DETECT</span>
+              <span style="font-size:11px; color:var(--text-muted);">Event Ingested</span>
+            </div>
+            <div class="step-content" id="step1-content"></div>
+          </div>
+
+          <!-- Step 2: Diagnose -->
+          <div class="step-card">
+            <div class="step-header">
+              <span class="step-number-tag">STEP 2: DIAGNOSE</span>
+              <span style="font-size:11px; color:var(--text-muted);">Multi-Leak ML Classifier</span>
+            </div>
+            <div class="step-content" id="step2-content"></div>
+          </div>
+
+          <!-- Step 3: Decide -->
+          <div class="step-card">
+            <div class="step-header">
+              <span class="step-number-tag">STEP 3: DECIDE</span>
+              <span style="font-size:11px; color:var(--text-muted);">Cost-Aware Expected Value Ranking</span>
+            </div>
+            <div class="step-content" id="step3-content"></div>
+          </div>
+
+          <!-- Step 4: Policy Check -->
+          <div class="step-card">
+            <div class="step-header">
+              <span class="step-number-tag">STEP 4: POLICY CHECK</span>
+              <span style="font-size:11px; color:var(--text-muted);">Deterministic Compliance Gates</span>
+            </div>
+            <div class="step-content" id="step4-content"></div>
+          </div>
+
+          <!-- Step 5: Execute -->
+          <div class="step-card">
+            <div class="step-header">
+              <span class="step-number-tag">STEP 5: EXECUTE</span>
+              <span style="font-size:11px; color:var(--text-muted);">Transactional Outbox Dispatch</span>
+            </div>
+            <div class="step-content" id="step5-content"></div>
+          </div>
+        </div>
+
+        <!-- Audit Trail -->
+        <div>
+          <div style="font-size:13px; font-weight:700; margin-bottom:8px;">Chronological State Transition Audit Log</div>
+          <div id="modal-audit-log" style="background:var(--bg-surface-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:10px 16px;"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer" id="modal-actions-container">
+        <button class="btn btn-outline" onclick="closeCaseModal()">Close</button>
       </div>
     </div>
   </div>
-</section>
 
-<section id="decisions">
-  <h2>Sample recovery decisions</h2>
-  <div class="desc">Root cause → chosen intervention → expected value, from the last full batch run.</div>
-  <table id="decision-table">
-    <thead><tr><th>Txn</th><th>Amount</th><th>Root cause</th><th>Chosen action</th><th>Expected value</th><th>Outcome</th></tr></thead>
-    <tbody></tbody>
-  </table>
-</section>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
 
-<section id="fraud">
-  <h2>Fraud detection — validated on real data</h2>
-  <div class="desc">Our five other root causes use documented synthetic data (labeled failure-outcome data isn't public). For fraud specifically, real labeled data exists — this model is trained and evaluated on the ULB Credit Card Fraud dataset: 284,807 real, anonymized European card transactions from 2013.</div>
-  <div class="grid2">
-    <div class="card">
-      <div class="diag-line">PR-AUC: <span class="cause" id="fraud-prauc">—</span></div>
-      <canvas id="prChart"></canvas>
-    </div>
-    <div class="card">
-      <div class="diag-line" style="margin-bottom:16px;">Confusion matrix (tuned threshold)</div>
-      <table id="confusion-table"></table>
-      <div class="footnote" id="fraud-footnote"></div>
-    </div>
-  </div>
-</section>
-
-<section id="audit">
-  <h2>Audit trail</h2>
-  <div class="desc">Every ledger transition, live. PENDING → EXECUTED, or SKIPPED if the action was already done — this is the crash-safety guarantee, visible.</div>
-  <div class="card"><div id="audit-log"></div></div>
-</section>
-
-</main>
-
-<script>
-const API = "http://localhost:5050/api";
-const fmtINR = n => "₹" + Number(n).toLocaleString('en-IN', {maximumFractionDigits:0});
-let currentLang = "english";
-let lastDiagnosis = null;
-
-async function loadBatch() {
-  const res = await fetch(`${API}/batch_summary`);
-  const data = await res.json();
-  const s = data.summary;
-
-  document.getElementById('stat-total').textContent = fmtINR(s.total_at_risk_revenue);
-  document.getElementById('stat-agent').textContent = fmtINR(s.recovered_agent);
-  document.getElementById('stat-lift').textContent = `+${s.lift_over_naive_pct}%`;
-
-  new Chart(document.getElementById('revenueChart'), {
-    type: 'bar',
-    data: {
-      labels: ['Do nothing', 'Naive retry', 'Recovery agent'],
-      datasets: [{
-        data: [s.recovered_do_nothing, s.recovered_naive_retry, s.recovered_agent],
-        backgroundColor: ['#5B5648', '#8A5A2B', '#2F5C42'],
-      }]
-    },
-    options: {
-      plugins:{legend:{display:false}},
-      scales:{
-        y:{ticks:{color:'#5B5648', font:{family:'IBM Plex Mono', size:10}, callback:v=>'₹'+(v/100000).toFixed(0)+'L'}, grid:{color:'#CFC7AE'}},
-        x:{ticks:{color:'#242119', font:{family:'IBM Plex Mono', size:11}}, grid:{display:false}}
-      }
-    }
-  });
-
-  const tbody = document.querySelector('#decision-table tbody');
-  data.sample_decisions.slice(0,14).forEach(d => {
-    const tr = document.createElement('tr');
-    const outClass = d.recovered_agent ? 'outcome-recovered' : 'outcome-not';
-    const outText = d.recovered_agent ? 'recovered' : 'not recovered';
-    tr.innerHTML = `<td>${d.txn_id}</td><td>${fmtINR(d.amount)}</td><td>${d.root_cause||'—'}</td>
-      <td><span class="action-tag a-${d.chosen_action}">${d.chosen_action}</span></td>
-      <td>${fmtINR(d.expected_value)}</td><td class="${outClass}">${outText}</td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-async function loadCalibration() {
-  const res = await fetch(`${API}/calibration`);
-  const c = await res.json();
-  const bins = c.calibration_bins;
-
-  new Chart(document.getElementById('calChart'), {
-    type: 'scatter',
-    data: {
-      datasets: [
-        { label: 'Model bins', data: bins.mean_predicted_confidence.map((x,i)=>({x, y: bins.actual_fraction_correct[i]})), backgroundColor: '#2F5C42', pointRadius: 5 },
-        { label: 'Perfect calibration', data: [{x:0,y:0},{x:1,y:1}], type: 'line', borderColor: '#CFC7AE', borderDash: [4,4], pointRadius: 0 }
-      ]
-    },
-    options: {
-      plugins:{legend:{labels:{color:'#5B5648', font:{family:'IBM Plex Mono', size:10}}}},
-      scales:{
-        x:{min:0,max:1, ticks:{color:'#5B5648', font:{family:'IBM Plex Mono', size:9}}, grid:{color:'#CFC7AE'}},
-        y:{min:0,max:1, ticks:{color:'#5B5648', font:{family:'IBM Plex Mono', size:9}}, grid:{color:'#CFC7AE'}}
-      }
-    }
-  });
-
-  document.getElementById('cal-footnote').textContent =
-    `Trained on ${c.n_train} synthetic examples (${c.n_test} held out) — accuracy ${(c.accuracy*100).toFixed(1)}% vs. 20% random baseline across 5 classes.`;
-}
-
-async function loadFraudReport() {
-  const res = await fetch(`${API}/fraud_report`);
-  const r = await res.json();
-
-  document.getElementById('fraud-prauc').textContent = r.pr_auc.toFixed(3);
-
-  new Chart(document.getElementById('prChart'), {
-    type: 'line',
-    data: {
-      labels: r.pr_curve.recall.map(x => x.toFixed(2)),
-      datasets: [{ label: 'Precision vs Recall', data: r.pr_curve.precision, borderColor: '#2F5C42', backgroundColor: 'transparent', pointRadius: 0, borderWidth: 2 }]
-    },
-    options: {
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{title:{display:true,text:'recall',color:'#5B5648'}, ticks:{color:'#5B5648', font:{family:'IBM Plex Mono', size:9}}, grid:{color:'#CFC7AE'}},
-        y:{title:{display:true,text:'precision',color:'#5B5648'}, min:0, max:1, ticks:{color:'#5B5648', font:{family:'IBM Plex Mono', size:9}}, grid:{color:'#CFC7AE'}}
-      }
-    }
-  });
-
-  const cm = r.tuned_threshold.confusion_matrix;
-  document.getElementById('confusion-table').innerHTML = `
-    <tr><th></th><th>Predicted: not fraud</th><th>Predicted: fraud</th></tr>
-    <tr><td>Actually not fraud</td><td>${cm.tn.toLocaleString()}</td><td>${cm.fp.toLocaleString()}</td></tr>
-    <tr><td>Actually fraud</td><td>${cm.fn}</td><td>${cm.tp}</td></tr>
-  `;
-  document.getElementById('fraud-footnote').textContent =
-    `At threshold ${r.tuned_threshold.threshold}: ${(r.tuned_threshold.recall*100).toFixed(1)}% of real fraud caught, ${(r.tuned_threshold.precision*100).toFixed(1)}% of flags were genuine fraud. Trained on ${r.n_total.toLocaleString()} real transactions (${r.n_fraud} labeled fraud, ${r.fraud_rate_pct}% of total).`;
-}
-
-async function loadAuditLog() {
-  const res = await fetch(`${API}/audit_log`);
-  const log = await res.json();
-  const el = document.getElementById('audit-log');
-  el.innerHTML = log.slice(0,60).map(row => {
-    const ts = new Date(row.ts*1000).toLocaleTimeString();
-    return `<div class="log-line"><span class="ts">${ts}</span> &nbsp; ${row.idempotency_key.slice(0,10)}… &nbsp;
-      <span class="st-${row.to_state}">${row.from_state||'—'} → ${row.to_state}</span> &nbsp;
-      <span style="color:#5B5648">${row.reason||''}</span></div>`;
-  }).join('');
-}
-
-async function runDiagnosis() {
-  const txn = {
-    amount: parseFloat(document.getElementById('in-amount').value),
-    days_to_card_expiry: parseInt(document.getElementById('in-expiry').value),
-    prior_failures: parseInt(document.getElementById('in-prior').value),
-    account_balance_proxy: parseFloat(document.getElementById('in-balance').value),
-    bank_risk_tier: document.getElementById('in-bank').value,
-    is_salary_week: document.getElementById('in-salary').value === 'true',
-  };
-  const res = await fetch(`${API}/diagnose`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(txn)
-  });
-  const data = await res.json();
-  lastDiagnosis = {txn, ...data};
-
-  document.getElementById('res-cause').textContent = data.diagnosis.root_cause;
-  document.getElementById('res-conf').textContent = `(${data.diagnosis.source}, confidence ${(data.diagnosis.confidence*100).toFixed(1)}%)`;
-
-  const evTable = document.getElementById('ev-table');
-  evTable.innerHTML = data.ranked_interventions.map((o,i) =>
-    `<div class="ev-card ${i===0?'top':''}"><div class="aname">${o.name}${i===0?' ← chosen':''}</div>P=${o.p_recovery.toFixed(2)}<br>EV=${fmtINR(o.expected_value)}</div>`
-  ).join('');
-
-  document.getElementById('result-box').classList.add('show');
-  document.getElementById('message-box').style.display = 'none';
-}
-
-function setLang(lang) {
-  currentLang = lang;
-  document.getElementById('lang-en').classList.toggle('active', lang === 'english');
-  document.getElementById('lang-hi').classList.toggle('active', lang === 'hinglish');
-}
-
-async function draftMessage() {
-  if (!lastDiagnosis) return;
-  const top = lastDiagnosis.ranked_interventions[0];
-  const name = document.getElementById('in-name').value || 'there';
-  const amount = fmtINR(lastDiagnosis.txn.amount);
-
-  const box = document.getElementById('message-box');
-  box.style.display = 'block';
-  box.textContent = 'Drafting...';
-
-  const res = await fetch(`${API}/draft_message`, {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({
-      root_cause: lastDiagnosis.diagnosis.root_cause,
-      action: top.name,
-      customer_name: name,
-      amount_display: amount,
-      language: currentLang,
-    })
-  });
-  const data = await res.json();
-  box.textContent = data.message;
-  document.getElementById('message-meta').textContent =
-    data.source === 'gemini' ? 'drafted live by Gemini' : (data.note || 'template fallback');
-}
-
-loadBatch();
-loadCalibration();
-loadFraudReport();
-loadAuditLog();
-setInterval(loadAuditLog, 4000);
-</script>
+  <!-- Application Controller -->
+  <script src="/js/app.js"></script>
 </body>
 </html>

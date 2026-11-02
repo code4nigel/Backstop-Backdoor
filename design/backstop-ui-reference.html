@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Backstop — Command Center reference</title>
+  <style>
+    :root {
+      --canvas: #fafaf7;
+      --surface: #ffffff;
+      --surface-muted: #f5f6f8;
+      --ink: #172033;
+      --muted: #657087;
+      --line: #e5e8ee;
+      --indigo: #2947b8;
+      --indigo-soft: #edf1ff;
+      --green: #087a56;
+      --green-soft: #eaf7f0;
+      --amber: #9a5b00;
+      --amber-soft: #fff5dd;
+      --red: #b42318;
+      --red-soft: #fff0ef;
+      --radius: 12px;
+      --shadow: 0 1px 2px rgb(23 32 51 / 4%);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input { font: inherit; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 208px minmax(0, 1fr); }
+    .sidebar { display: flex; flex-direction: column; padding: 26px 16px 20px; background: #fff; border-right: 1px solid var(--line); }
+    .brand { font-weight: 760; font-size: 19px; letter-spacing: -.045em; margin: 0 10px 34px; }
+    .nav-label { margin: 0 10px 8px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .nav { display: grid; gap: 3px; }
+    .nav a { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 11px; color: #44506a; border-radius: 8px; text-decoration: none; font-weight: 570; }
+    .nav a.active { background: var(--indigo-soft); color: #19399e; }
+    .nav svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; }
+    .environment { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .environment strong { display: block; color: var(--ink); font-size: 12px; margin-bottom: 3px; }
+    .environment span { display: inline-block; margin-bottom: 5px; padding: 3px 7px; color: #4057a7; background: var(--indigo-soft); border-radius: 4px; font-weight: 650; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 15px 30px; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 75%); }
+    .search { width: min(470px, 48vw); position: relative; }
+    .search span { position: absolute; top: 9px; left: 12px; color: var(--muted); }
+    .search input { width: 100%; padding: 9px 12px 9px 34px; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; outline-color: var(--indigo); background: var(--surface); }
+    .topbar-meta { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 13px; }
+    .avatar { display: grid; place-items: center; width: 32px; height: 32px; background: #e9edf5; border-radius: 50%; color: #43516f; font-size: 12px; font-weight: 700; }
+    main { padding: 38px 30px 48px; max-width: 1540px; margin: 0 auto; width: 100%; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; }
+    h1 { margin: 0; font-size: clamp(29px, 3.3vw, 45px); line-height: 1.06; letter-spacing: -.055em; }
+    .lede { margin: 8px 0 26px; max-width: 700px; color: var(--muted); font-size: 16px; }
+    .incident { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; background: var(--amber-soft); border: 1px solid #f2db9f; border-radius: 8px; color: #4c3510; }
+    .incident-title { display: flex; align-items: center; gap: 10px; font-weight: 660; }
+    .dot { width: 10px; height: 10px; flex: none; background: #df9600; border-radius: 50%; }
+    .link-button { padding: 0; color: var(--indigo); border: 0; background: none; cursor: pointer; font-weight: 650; white-space: nowrap; }
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+    .metric, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .metric { min-height: 158px; padding: 20px; }
+    .metric-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+    .metric-value { margin: 12px 0 8px; font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 730; letter-spacing: -.045em; }
+    .metric-note { color: var(--green); font-size: 13px; font-weight: 600; }
+    .metric-note.neutral { color: var(--muted); }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 19px 20px; border-bottom: 1px solid var(--line); }
+    .panel-title { margin: 0; font-size: 19px; letter-spacing: -.025em; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: 11px 20px; color: var(--muted); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+    td { padding: 14px 20px; border-bottom: 1px solid var(--line); color: #38445b; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fbfcff; }
+    .id, .money { font-variant-numeric: tabular-nums; font-weight: 660; color: var(--ink); }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 5px; font-size: 12px; font-weight: 650; }
+    .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .allowed { color: var(--green); background: var(--green-soft); }
+    .review { color: var(--amber); background: var(--amber-soft); }
+    .blocked { color: var(--red); background: var(--red-soft); }
+    .aside { display: grid; align-content: start; gap: 20px; }
+    .side-panel { padding: 20px; }
+    .side-title { margin: 0 0 4px; font-size: 19px; letter-spacing: -.03em; }
+    .side-subtitle { margin: 0 0 18px; color: var(--muted); font-size: 12px; }
+    .route { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 0; color: #44506a; }
+    .route strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .route-name::before { content: ""; display: inline-block; width: 18px; height: 3px; margin: 0 8px 3px 0; vertical-align: middle; background: #8ba9ed; border-radius: 2px; }
+    .route-name.affected::before { background: var(--indigo); }
+    .spark { position: relative; height: 105px; margin-top: 15px; background: repeating-linear-gradient(to bottom, transparent 0, transparent 25px, #edf0f4 26px); overflow: hidden; }
+    .spark svg { width: 100%; height: 100%; }
+    .queue-total { margin: 13px 0 3px; font-size: 42px; line-height: 1; font-variant-numeric: tabular-nums; font-weight: 740; letter-spacing: -.05em; }
+    .queue-note { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+    .queue-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); color: #536078; font-size: 13px; }
+    .queue-row strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+    .queue-row time { color: var(--muted); font-size: 12px; }
+    .reference-note { margin-top: 22px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 1000px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } .layout { grid-template-columns: 1fr; } .aside { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 680px) { .topbar { padding: 12px 18px; } .topbar-meta { display: none; } main { padding: 28px 18px; } .search { width: 100%; } .metrics, .aside { grid-template-columns: 1fr; } .incident { align-items: flex-start; flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">BACKSTOP</div>
+      <p class="nav-label">Recovery operations</p>
+      <nav class="nav">
+        <a class="active" href="#overview" aria-current="page"><svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>Overview</a>
+        <a href="#cases"><svg viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H5V3h2Zm1 0v5h5"/><path d="M9 14h6M9 18h6"/></svg>Cases</a>
+        <a href="#policy"><svg viewBox="0 0 24 24"><path d="m12 3 8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"/><path d="m9 12 2 2 4-4"/></svg>Policy Lab</a>
+        <a href="#reviews"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Reviews</a>
+      </nav>
+      <div class="environment"><span>Synthetic demo</span><strong>Evaluation environment</strong>Metrics shown here must be derived from the seeded run and labelled as simulated.</div>
+    </aside>
+    <section>
+      <header class="topbar"><label class="search"><span>⌕</span><input type="search" placeholder="Search cases, payments, merchants or routes…" aria-label="Search cases"></label><div class="topbar-meta"><time datetime="2026-11-02">2 Nov 2026</time><span class="avatar">AS</span></div></header>
+      <main id="overview">
+        <div class="layout">
+          <section>
+            <h1>Revenue recovery, safely prioritized</h1>
+            <p class="lede">Detect revenue leaks, take the next safe action, and recover value without creating customer or compliance risk.</p>
+            <div class="incident" role="status"><div class="incident-title"><span class="dot"></span>HDFC UPI route degradation · 38 cases safely held or rerouted</div><button class="link-button">View incident →</button></div>
+            <section class="metrics" aria-label="Summary metrics">
+              <article class="metric"><div class="metric-label">Revenue at risk</div><div class="metric-value">₹54.2L</div><div class="metric-note neutral">320 cases in this seeded evaluation run</div></article>
+              <article class="metric"><div class="metric-label">Incremental net recovery</div><div class="metric-value">₹12.4L</div><div class="metric-note">+18.4% versus control · simulated</div></article>
+              <article class="metric"><div class="metric-label">Policy-protected cases</div><div class="metric-value">64</div><div class="metric-note">No outbound action taken where policy blocked it</div></article>
+            </section>
+            <section class="panel" id="cases" aria-labelledby="priority-title">
+              <div class="panel-header"><h2 class="panel-title" id="priority-title">Priority cases</h2><button class="link-button">View all cases →</button></div>
+              <div class="table-wrap"><table><thead><tr><th>Case</th><th>Leak type</th><th>Next safe action</th><th>Net expected value</th><th>Policy status</th><th>Updated</th></tr></thead><tbody>
+                <tr><td class="id">CASE-PAY-0182</td><td>Failed payment</td><td>Reroute through ICICI UPI</td><td class="money">₹52,340</td><td><span class="chip allowed">Allowed</span></td><td>2m ago</td></tr>
+                <tr><td class="id">CASE-MAN-0041</td><td>Mandate renewal</td><td>Send pre-debit compliant retry</td><td class="money">₹41,220</td><td><span class="chip allowed">Allowed</span></td><td>7m ago</td></tr>
+                <tr><td class="id">CASE-INV-0098</td><td>B2B invoice</td><td>Human account review</td><td class="money">₹28,410</td><td><span class="chip review">Needs review</span></td><td>12m ago</td></tr>
+                <tr><td class="id">CASE-CART-0310</td><td>Abandoned checkout</td><td>Hold until permitted contact window</td><td class="money">₹19,760</td><td><span class="chip blocked">Blocked</span></td><td>23m ago</td></tr>
+              </tbody></table></div>
+            </section>
+          </section>
+          <aside class="aside" aria-label="Operational signals">
+            <section class="panel side-panel"><h2 class="side-title">Today’s signal</h2><p class="side-subtitle">Route health · success rate</p><div class="route"><span class="route-name affected">HDFC UPI</span><strong>62%</strong></div><div class="route"><span class="route-name">ICICI UPI</span><strong>94%</strong></div><div class="route"><span class="route-name">Axis UPI</span><strong>91%</strong></div><div class="spark"><svg viewBox="0 0 260 100" preserveAspectRatio="none" aria-label="Route health sparkline"><polyline points="0,30 20,31 40,27 60,34 80,31 100,42 120,76 140,55 160,59 180,51 200,56 220,49 260,45" fill="none" stroke="#2947b8" stroke-width="3"/><line x1="121" x2="121" y1="0" y2="100" stroke="#d99a14" stroke-dasharray="4 4"/></svg></div></section>
+            <section class="panel side-panel" id="reviews"><h2 class="side-title">Review queue</h2><div class="queue-total">40</div><p class="queue-note">cases awaiting a human decision</p><div class="queue-row"><strong>21</strong><span>High value</span><time>&lt; 1h</time></div><div class="queue-row"><strong>12</strong><span>Dispute or hardship</span><time>&lt; 1h</time></div><div class="queue-row"><strong>7</strong><span>Low confidence</span><time>1–4h</time></div></section>
+          </aside>
+        </div>
+        <p class="reference-note">UI reference only. Production values must be produced by the evaluator and persisted run data, never fixed display constants.</p>
+      </main>
+    </section>
+  </div>
+</body>
+</html>

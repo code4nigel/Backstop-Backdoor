@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backstop — Hinglish Voice Recovery Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F1EDE1;
+    --paper-raised: #FAF8F2;
+    --paper-dark: #E6E0CC;
+    --sidebar: #E9E3D0;
+    --ink: #242119;
+    --ink-soft: #5B5648;
+    --rule: #CFC7AE;
+    --credit: #2F5C42;
+    --debit: #8A3B2E;
+    --warning: #946800;
+    --info: #2B5282;
+    --serif: 'Source Serif 4', Georgia, serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+  }
+  .container {
+    width: 100%;
+    max-width: 1280px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  /* Header & Call Status Banner */
+  .call-header {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 4px;
+  }
+  .call-identity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .live-dot {
+    width: 12px;
+    height: 12px;
+    background: #2ECC71;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(46, 204, 113, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+  }
+  .call-title {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .call-subtitle {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .call-meta-pills {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 3px;
+  }
+  .pill-strong {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* Two Column Layout */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 20px;
+  }
+
+  /* Left Column: Chat / Call Transcript */
+  .call-panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    height: 640px;
+  }
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #F4EFE2;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  .chat-transcript {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .msg-row {
+    display: flex;
+    flex-direction: column;
+    max-width: 82%;
+  }
+  .msg-agent {
+    align-self: flex-start;
+  }
+  .msg-user {
+    align-self: flex-end;
+  }
+  .msg-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .bubble-agent {
+    background: #EFE9D7;
+    border: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  .bubble-user {
+    background: var(--ink);
+    color: var(--paper-raised);
+    border: 1px solid var(--ink);
+  }
+  .bubble-system {
+    align-self: center;
+    background: transparent;
+    border: 1px dashed var(--rule);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+
+  /* Preset Presets Shelf */
+  .presets-shelf {
+    padding: 12px 18px;
+    border-top: 1px solid var(--rule);
+    background: #F6F2E7;
+  }
+  .presets-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+  .presets-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip-btn {
+    font-family: var(--sans);
+    font-size: 11.5px;
+    padding: 5px 10px;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  .chip-btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* Input Bar */
+  .chat-input-bar {
+    padding: 12px 18px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    gap: 10px;
+    background: var(--paper-raised);
+  }
+  .chat-input {
+    flex: 1;
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 10px 14px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    border-radius: 3px;
+    outline: none;
+  }
+  .chat-input:focus {
+    border-color: var(--ink);
+  }
+  .btn-send {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 18px;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    cursor: pointer;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .btn-send:hover {
+    background: #3B3629;
+  }
+  .btn-reset {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .btn-reset:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+
+  /* Right Column: Guardrail Inspector */
+  .inspector-panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    height: 640px;
+    overflow-y: auto;
+  }
+  .inspector-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .indicator-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .indicator-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .indicator-value {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .intent-badge {
+    font-size: 11.5px;
+    padding: 3px 8px;
+    border: 1px solid;
+    border-radius: 3px;
+  }
+  .intent-PROMISE_LATER { color: var(--info); border-color: var(--info); background: rgba(43,82,130,0.06); }
+  .intent-ALREADY_PAID { color: var(--debit); border-color: var(--debit); background: rgba(138,59,46,0.06); }
+  .intent-PAY_NOW { color: var(--credit); border-color: var(--credit); background: rgba(47,92,66,0.06); }
+  .intent-SEND_LINK { color: #5B428A; border-color: #5B428A; background: rgba(91,66,138,0.06); }
+  .intent-INVOICE_DISPUTE { color: var(--warning); border-color: var(--warning); background: rgba(148,104,0,0.06); }
+  .intent-ANGER_HOSTILITY { color: var(--debit); border-color: var(--debit); background: rgba(138,59,46,0.06); }
+  .intent-OPT_OUT { color: var(--ink); border-color: var(--ink); background: rgba(36,33,25,0.06); }
+
+  .rule-pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    background: #E8E2D1;
+    border: 1px solid #C4BC9E;
+    color: var(--ink);
+    border-radius: 3px;
+    word-break: break-all;
+  }
+  .state-step-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .state-node {
+    padding: 3px 8px;
+    border: 1px solid var(--rule);
+    background: var(--paper-raised);
+    border-radius: 3px;
+  }
+  .state-node.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* Specific Outcome Widgets */
+  .outcome-box {
+    border-left: 3px solid var(--credit);
+    background: #EFF6F0;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    border-radius: 0 4px 4px 0;
+  }
+  .outcome-box.debit {
+    border-left-color: var(--debit);
+    background: #FAF0EE;
+  }
+  .outcome-box.info {
+    border-left-color: var(--info);
+    background: #EEF4FA;
+  }
+  .outcome-box.warning {
+    border-left-color: var(--warning);
+    background: #FAF6EA;
+  }
+  .outcome-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Audit Log Mini Feed */
+  .audit-feed {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+  .audit-entry {
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(207, 199, 174, 0.4);
+  }
+  .audit-time {
+    color: #8C8470;
+    margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header Banner -->
+  <div class="call-header">
+    <div class="call-identity">
+      <div class="live-dot" id="call-dot"></div>
+      <div>
+        <div class="call-title">Backstop AI: Hinglish Voice Recovery Call</div>
+        <div class="call-subtitle">Caller: Backstop Payment Operations Desk (Razorpay) &bull; Mode: Deterministic Policy Engine</div>
+      </div>
+    </div>
+    <div class="call-meta-pills">
+      <div class="pill">Customer: <strong id="cust-name">Rohan Gupta</strong></div>
+      <div class="pill">Phone: <strong id="cust-phone">+91 98*** **210</strong></div>
+      <div class="pill pill-strong">Due: INR 14,500.00</div>
+      <button class="btn-reset" onclick="initCall()">Restart Call</button>
+    </div>
+  </div>
+
+  <!-- Two-Column Layout -->
+  <div class="main-grid">
+    <!-- Left Column: Interactive Call Transcript -->
+    <div class="call-panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Call Audio Transcript</span>
+        <span class="pill" id="call-status-badge">CONNECTED &bull; 00:14</span>
+      </div>
+
+      <div class="chat-transcript" id="chat-stream">
+        <!-- Messages rendered dynamically -->
+      </div>
+
+      <!-- Objection Presets Shelf -->
+      <div class="presets-shelf">
+        <div class="presets-label">Click Preset Customer Objection / Reply:</div>
+        <div class="presets-container">
+          <button class="chip-btn" onclick="sendPreset(0)">🗓️ "Salary aane do 5th ko"</button>
+          <button class="chip-btn" onclick="sendPreset(1)">🛡️ "Maine kal shaam ko UPI se pay kiya tha"</button>
+          <button class="chip-btn" onclick="sendPreset(2)">⚡ "Haan, abhi kar deta hu GPay se"</button>
+          <button class="chip-btn" onclick="sendPreset(3)">📱 "Mujhe WhatsApp pe link bhej do"</button>
+          <button class="chip-btn" onclick="sendPreset(4)">⚠️ "Invoice galat hai, discount nahi laga"</button>
+          <button class="chip-btn" onclick="sendPreset(5)">🛑 "Bakwas band karo, phone mat karna!"</button>
+          <button class="chip-btn" onclick="sendPreset(6)">🚫 "Mera number list se hatao (DND)"</button>
+        </div>
+      </div>
+
+      <!-- Chat Input -->
+      <div class="chat-input-bar">
+        <input type="text" id="cust-input" class="chat-input" placeholder="Type customer reply in Hinglish or English..." onkeydown="if(event.key==='Enter') submitCustInput()" />
+        <button class="btn-send" onclick="submitCustInput()">Speak</button>
+      </div>
+    </div>
+
+    <!-- Right Column: Guardrail Inspector Sidecar -->
+    <div class="inspector-panel">
+      <div class="panel-header">
+        <span class="panel-title">Live Guardrail Inspector (Deterministic Sidecar)</span>
+        <span class="pill">RBI COMPLIANT</span>
+      </div>
+
+      <div class="inspector-content">
+        <!-- Indicator 1: Detected Intent & Confidence -->
+        <div class="indicator-card">
+          <div class="indicator-label">Detected Customer Intent</div>
+          <div class="indicator-value">
+            <span id="insp-intent" class="intent-badge intent-PROMISE_LATER">WAITING_FOR_RESPONSE</span>
+            <span id="insp-conf" style="font-size:12px; color:var(--ink-soft)">--%</span>
+          </div>
+        </div>
+
+        <!-- Indicator 2: Fired Policy Rule -->
+        <div class="indicator-card">
+          <div class="indicator-label">Fired Policy Rule (Deterministic Guardrail)</div>
+          <div>
+            <span class="rule-pill" id="insp-rule">RULE_OUTBOUND_GREETING_STAGE</span>
+          </div>
+        </div>
+
+        <!-- Indicator 3: Case State Transition -->
+        <div class="indicator-card">
+          <div class="indicator-label">Case State Transition</div>
+          <div class="state-step-flow">
+            <div class="state-node" id="sn-from">READY</div>
+            <span>&rarr;</span>
+            <div class="state-node active" id="sn-to">READY</div>
+          </div>
+        </div>
+
+        <!-- Indicator 4: Dynamic Action Payload Card -->
+        <div id="insp-action-card" class="outcome-box info" style="display:none;">
+          <div class="outcome-title" id="action-title">Action Scheduled</div>
+          <div id="action-desc">No dispatch yet.</div>
+        </div>
+
+        <!-- Indicator 5: Compliance Audit Trail Mini Stream -->
+        <div class="indicator-card" style="flex:1;">
+          <div class="indicator-label">Deterministic Audit Event Stream</div>
+          <div class="audit-feed" id="audit-feed">
+            <div class="audit-entry"><span class="audit-time">11:00:00</span> [CALL_INIT] Outbound recovery call connected to Rohan Gupta.</div>
+            <div class="audit-entry"><span class="audit-time">11:00:01</span> [GREETING] Natural Hinglish greeting dispatched.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = [
+  "Bhaiya abhi salary nahi aayi, 5 tareekh ko transfer karunga",
+  "Maine kal shaam ko hi UPI se pay kar diya tha, baar baar kyu call kar rahe ho?",
+  "Haan, abhi kar deta hu GPay se",
+  "Mujhe WhatsApp pe link bhej do",
+  "Invoice galat hai, discount nahi laga tha",
+  "Bakwas band karo, tameez nahi hai kya phone karne ki!",
+  "Mera number list se hatao, DND register karo"
+];
+
+let callEnded = false;
+let currentState = "READY";
+
+function logAudit(action, detail) {
+  const d = new Date();
+  const time = d.toTimeString().split(' ')[0];
+  const feed = document.getElementById('audit-feed');
+  const div = document.createElement('div');
+  div.className = 'audit-entry';
+  div.innerHTML = `<span class="audit-time">${time}</span> <strong>[${action}]</strong> ${detail}`;
+  feed.prepend(div);
+}
+
+function appendBubble(sender, text) {
+  const stream = document.getElementById('chat-stream');
+  const row = document.createElement('div');
+  row.className = `msg-row ${sender === 'Agent' ? 'msg-agent' : 'msg-user'}`;
+  
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.innerText = sender === 'Agent' ? 'Backstop Voice Agent' : 'Customer (Rohan)';
+  
+  const bubble = document.createElement('div');
+  bubble.className = `bubble ${sender === 'Agent' ? 'bubble-agent' : 'bubble-user'}`;
+  bubble.innerText = text;
+
+  row.appendChild(label);
+  row.appendChild(bubble);
+  stream.appendChild(row);
+  stream.scrollTop = stream.scrollHeight;
+}
+
+function initCall() {
+  callEnded = false;
+  currentState = "READY";
+  document.getElementById('call-dot').style.background = "#2ECC71";
+  document.getElementById('call-status-badge').innerText = "CONNECTED";
+  document.getElementById('chat-stream').innerHTML = '';
+  document.getElementById('insp-action-card').style.display = 'none';
+  document.getElementById('sn-from').innerText = "READY";
+  document.getElementById('sn-to').innerText = "READY";
+  document.getElementById('insp-intent').className = "intent-badge";
+  document.getElementById('insp-intent').innerText = "GREETING_STAGED";
+  document.getElementById('insp-conf').innerText = "100%";
+  document.getElementById('insp-rule').innerText = "RULE_OUTBOUND_GREETING_STAGE";
+
+  const greeting = "Namaste Rohan Gupta ji! Main Backstop payment desk se bol raha hu. Aapka Rs. 14,500 ka payment pending tha, usi ke baare mein baat karni thi. Kya yeh sahi samay hai baat karne ka?";
+  appendBubble('Agent', greeting);
+  logAudit("CALL_RESET", "New call staged with customer Rohan Gupta (Rs. 14,500.00).");
+}
+
+function sendPreset(idx) {
+  if (callEnded) return;
+  const text = PRESETS[idx];
+  processCustomerUtterance(text);
+}
+
+function submitCustInput() {
+  if (callEnded) return;
+  const input = document.getElementById('cust-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  processCustomerUtterance(text);
+}
+
+function processCustomerUtterance(text) {
+  appendBubble('Customer', text);
+
+  const clean = text.toLowerCase();
+  let intent = "CLARIFY";
+  let conf = "50%";
+  let rule = "RULE_CLARIFICATION_REASK";
+  let nextState = currentState;
+  let reply = "";
+  let actionTitle = "";
+  let actionDesc = "";
+  let actionBoxClass = "outcome-box info";
+
+  // Intent classification
+  if (clean.includes("dnd") || clean.includes("list se hatao") || clean.includes("remove")) {
+    intent = "OPT_OUT";
+    conf = "99.0%";
+    rule = "RULE_DND_OPT_OUT_RECORDED";
+    nextState = "POLICY_BLOCKED";
+    reply = "Aapki request note kar li gayi hai. Aapka number hamari calling list se turant hata diya gaya hai aur DND update ho gaya hai. Aapko aage se koi reminder call nahi aayegi. Shukriya.";
+    actionTitle = "Permanent DND Record Saved";
+    actionDesc = "Customer phone +91 98*** **210 permanently blocked across all channels.";
+    actionBoxClass = "outcome-box debit";
+    callEnded = true;
+  } else if (clean.includes("bakwas") || clean.includes("tameez") || clean.includes("harass") || clean.includes("complaint")) {
+    intent = "ANGER_HOSTILITY";
+    conf = "96.0%";
+    rule = "RULE_HOSTILITY_7DAY_DND_APPLIED";
+    nextState = "POLICY_BLOCKED";
+    reply = "Main aapki pareshani poori tarah samajh sakta hu, aur asuvidha ke liye kshama chahta hu. Main abhi aapke account par 7 din ka contact hold laga raha hu aur yeh case senior support team ko escalate kar raha hu. Aapko pareshan nahi kiya jayega.";
+    actionTitle = "7-Day Contact Hold Applied";
+    actionDesc = "Escalated to Senior Customer Relations Manager. Outreach suppressed until 2026-11-09.";
+    actionBoxClass = "outcome-box debit";
+    callEnded = true;
+  } else if (clean.includes("already paid") || clean.includes("pay kar diya") || clean.includes("paise kat gaye") || clean.includes("already")) {
+    intent = "ALREADY_PAID";
+    conf = "98.0%";
+    rule = "RULE_DISPUTE_FREEZE_TRIGGERED";
+    nextState = "DISPUTED";
+    reply = "Maaf kijiye! Main abhi aapka case hold pe daal raha hu aur hamari accounts team se verify karwata hu. Aapko dobara call nahi aayegi jab tak verify na ho jaye.";
+    actionTitle = "Dispute Recon Task Created";
+    actionDesc = "Case FROZEN. Task recon_rec_case_89f02a dispatched to Payment Reconciliation Team.";
+    actionBoxClass = "outcome-box debit";
+    callEnded = true;
+  } else if (clean.includes("invoice") || clean.includes("discount") || clean.includes("galat")) {
+    intent = "INVOICE_DISPUTE";
+    conf = "95.0%";
+    rule = "RULE_INVOICE_DISPUTE_FREEZE";
+    nextState = "DISPUTED";
+    reply = "Maine aapka dispute record kar liya hai. Hamari accounts team invoice check karegi aur tab tak aapka case hold par rahega aur koi call nahi aayegi.";
+    actionTitle = "Invoice Dispute Ticket Logged";
+    actionDesc = "Discrepancy tagged. Outreach frozen pending invoice audit.";
+    actionBoxClass = "outcome-box warning";
+    callEnded = true;
+  } else if (clean.includes("link") && !clean.includes("salary")) {
+    intent = "SEND_LINK";
+    conf = "97.0%";
+    rule = "RULE_MIDCALL_LINK_SENT";
+    nextState = "EXECUTING";
+    reply = "Maine aapke WhatsApp number pe link bhej diya hai, please check kar lijiye.";
+    actionTitle = "Mid-Call WhatsApp PayLink Delivered";
+    actionDesc = "Link: https://rzp.io/i/rec_8126ca &bull; Receipt: wamid.HBgMOTE5OD5f... &bull; Status: DELIVERED";
+    actionBoxClass = "outcome-box";
+    callEnded = true;
+  } else if (clean.includes("abhi") || clean.includes("pay now") || clean.includes("ready to pay")) {
+    intent = "PAY_NOW";
+    conf = "96.0%";
+    rule = "RULE_PAY_NOW_LINK_DISPATCH";
+    nextState = "EXECUTING";
+    reply = "Bahut badhiya Rohan Gupta ji! Main aapke WhatsApp number +91 98*** **210 par direct Razorpay payment link bhej raha hu. Main line par hi ruka hu, please check karke pay kar dijiye.";
+    actionTitle = "Live Mid-Call WhatsApp PayLink Dispatched";
+    actionDesc = "Dispatched https://rzp.io/i/rec_8126ca via WhatsApp. Waiting for real-time payment webhook.";
+    actionBoxClass = "outcome-box";
+    callEnded = true;
+  } else if (clean.includes("salary") || clean.includes("tareekh") || clean.includes("dunga") || clean.includes("kal") || clean.includes("parso") || clean.includes("5th")) {
+    intent = "PROMISE_LATER";
+    conf = "98.0%";
+    rule = "RULE_PTP_REGISTERED_HOLD_OUTREACH";
+    nextState = "PROMISED";
+    reply = "Bilkul samajh sakta hu. Maine 5 tareekh note kar li hai, us din subah aapko reminder bhej denge.";
+    actionTitle = "Promise-to-Pay (PTP) Registered";
+    actionDesc = "PTP Date: 2026-11-05 &bull; Outreach FROZEN &bull; Reminder scheduled: 2026-11-05 09:00 AM.";
+    actionBoxClass = "outcome-box info";
+    callEnded = true;
+  } else {
+    reply = "Maaf kijiye, main theek se samajh nahi paya. Kya aap abhi pay karna chahenge, ya WhatsApp par link bhej du, ya fir kisi aur tareekh ka reminder lagayein?";
+  }
+
+  // Update inspector sidecar
+  setTimeout(() => {
+    appendBubble('Agent', reply);
+
+    document.getElementById('insp-intent').innerText = intent;
+    document.getElementById('insp-intent').className = `intent-badge intent-${intent}`;
+    document.getElementById('insp-conf').innerText = conf;
+    document.getElementById('insp-rule').innerText = rule;
+
+    document.getElementById('sn-from').innerText = currentState;
+    document.getElementById('sn-to').innerText = nextState;
+    currentState = nextState;
+
+    if (actionTitle) {
+      const card = document.getElementById('insp-action-card');
+      card.style.display = 'block';
+      card.className = actionBoxClass;
+      document.getElementById('action-title').innerText = actionTitle;
+      document.getElementById('action-desc').innerHTML = actionDesc;
+    }
+
+    logAudit(intent, `Rule fired: ${rule} | Next State: ${nextState}`);
+
+    if (callEnded) {
+      document.getElementById('call-dot').style.background = "#888";
+      document.getElementById('call-status-badge').innerText = "CALL COMPLETED";
+      logAudit("TERMINAL", `Call ended safely under state: ${nextState}.`);
+    }
+  }, 250);
+}
+
+// Staged start
+window.onload = initCall;
+</script>
+</body>
+</html>
