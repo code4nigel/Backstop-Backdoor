@@ -258,6 +258,34 @@
   .btn-send:hover {
     background: #3B3629;
   }
+  .btn-mic {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 10px 14px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    cursor: pointer;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+  }
+  .btn-mic:hover {
+    border-color: var(--ink);
+  }
+  .btn-mic.mic-active {
+    background: #DC2626;
+    color: #FFFFFF;
+    border-color: #DC2626;
+    animation: micPulse 1.2s infinite;
+  }
+  @keyframes micPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+  }
   .btn-reset {
     font-family: var(--mono);
     font-size: 11px;
@@ -413,14 +441,15 @@
     <div class="call-identity">
       <div class="live-dot" id="call-dot"></div>
       <div>
-        <div class="call-title">Backstop AI: Hinglish Voice Recovery Call</div>
-        <div class="call-subtitle">Caller: Backstop Payment Operations Desk (Razorpay) &bull; Mode: Deterministic Policy Engine</div>
+        <div class="call-title">Backstop AI: Hinglish Voice Recovery Simulator</div>
+        <div class="call-subtitle">Caller: Backstop Payment Operations Desk &bull; Mode: Deterministic Policy Engine &bull; Speech-Enabled Voice Flow Simulation</div>
       </div>
     </div>
     <div class="call-meta-pills">
       <div class="pill">Customer: <strong id="cust-name">Rohan Gupta</strong></div>
       <div class="pill">Phone: <strong id="cust-phone">+91 98*** **210</strong></div>
       <div class="pill pill-strong">Due: INR 14,500.00</div>
+      <button class="btn-reset" id="voice-tts-toggle" onclick="toggleTTS()" title="Toggle spoken agent voice response">🔊 Spoken Voice: ON</button>
       <button class="btn-reset" onclick="initCall()">Restart Call</button>
     </div>
   </div>
@@ -431,7 +460,7 @@
     <div class="call-panel">
       <div class="panel-header">
         <span class="panel-title">Active Call Audio Transcript</span>
-        <span class="pill" id="call-status-badge">CONNECTED &bull; 00:14</span>
+        <span class="pill" id="call-status-badge">SIMULATED VOICE FLOW &bull; CONNECTED</span>
       </div>
 
       <div class="chat-transcript" id="chat-stream">
@@ -452,10 +481,11 @@
         </div>
       </div>
 
-      <!-- Chat Input -->
+      <!-- Chat Input with Speech-to-Text Mic -->
       <div class="chat-input-bar">
-        <input type="text" id="cust-input" class="chat-input" placeholder="Type customer reply in Hinglish or English..." onkeydown="if(event.key==='Enter') submitCustInput()" />
-        <button class="btn-send" onclick="submitCustInput()">Speak</button>
+        <button class="btn-mic" id="btn-mic" onclick="toggleSpeechRecognition()" title="Click to speak via Microphone">🎤 Mic</button>
+        <input type="text" id="cust-input" class="chat-input" placeholder="Type or click 🎤 Mic to speak in Hinglish/English..." onkeydown="if(event.key==='Enter') submitCustInput()" />
+        <button class="btn-send" onclick="submitCustInput()">Send reply</button>
       </div>
     </div>
 
@@ -526,6 +556,92 @@ const PRESETS = [
 
 let callEnded = false;
 let currentState = "READY";
+let ttsEnabled = true;
+let isListening = false;
+let recognition = null;
+
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('voice-tts-toggle');
+  if (btn) btn.innerHTML = `🔊 Spoken Voice: <strong>${ttsEnabled ? 'ON' : 'OFF'}</strong>`;
+  logAudit("TTS_CONFIG", `Agent voice speech synthesis set to ${ttsEnabled ? 'ENABLED' : 'DISABLED'}`);
+}
+
+function speakAgentText(text) {
+  if (!ttsEnabled || !window.speechSynthesis) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang.includes('hi') || v.lang.includes('IN') || v.name.includes('India'));
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.error("TTS error:", err);
+  }
+}
+
+function toggleSpeechRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    alert("Speech recognition is not supported in this browser or over insecure HTTP. Please type your reply in the input field.");
+    return;
+  }
+  const micBtn = document.getElementById('btn-mic');
+  if (isListening) {
+    if (recognition) recognition.stop();
+    isListening = false;
+    micBtn.classList.remove('mic-active');
+    micBtn.innerHTML = '🎤 Mic';
+    return;
+  }
+
+  try {
+    recognition = new SpeechRec();
+    recognition.lang = 'hi-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('mic-active');
+      micBtn.innerHTML = '🔴 Listening...';
+      logAudit("MIC_ACTIVE", "Browser microphone listening for Hinglish utterance...");
+    };
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      const input = document.getElementById('cust-input');
+      input.value = transcript;
+      isListening = false;
+      micBtn.classList.remove('mic-active');
+      micBtn.innerHTML = '🎤 Mic';
+      logAudit("SPEECH_TRANSCRIBED", `Transcribed: "${transcript}"`);
+    };
+
+    recognition.onerror = (e) => {
+      isListening = false;
+      micBtn.classList.remove('mic-active');
+      micBtn.innerHTML = '🎤 Mic';
+      logAudit("MIC_ERROR", `Microphone error or permission denied: ${e.error}`);
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      micBtn.classList.remove('mic-active');
+      micBtn.innerHTML = '🎤 Mic';
+    };
+
+    recognition.start();
+  } catch (err) {
+    console.error(err);
+    isListening = false;
+    micBtn.classList.remove('mic-active');
+    micBtn.innerHTML = '🎤 Mic';
+  }
+}
 
 function logAudit(action, detail) {
   const d = new Date();
@@ -572,6 +688,7 @@ function initCall() {
 
   const greeting = "Namaste Rohan Gupta ji! Main Backstop payment desk se bol raha hu. Aapka Rs. 14,500 ka payment pending tha, usi ke baare mein baat karni thi. Kya yeh sahi samay hai baat karne ka?";
   appendBubble('Agent', greeting);
+  speakAgentText(greeting);
   logAudit("CALL_RESET", "New call staged with customer Rohan Gupta (Rs. 14,500.00).");
 }
 
@@ -681,6 +798,7 @@ function processCustomerUtterance(text) {
   // Update inspector sidecar
   setTimeout(() => {
     appendBubble('Agent', reply);
+    speakAgentText(reply);
 
     document.getElementById('insp-intent').innerText = intent;
     document.getElementById('insp-intent').className = `intent-badge intent-${intent}`;

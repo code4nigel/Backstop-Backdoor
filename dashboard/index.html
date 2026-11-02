@@ -88,20 +88,24 @@
         <span class="breadcrumb-curr">Revenue Recovery Command Center</span>
       </div>
       <div class="topbar-actions">
-        <a href="/voice" target="_blank" class="btn btn-sm" style="background:#0284C7; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 12px; border-radius:4px;">
-          Voice simulation ↗
+        <button class="btn btn-primary btn-sm" id="btn-run-batch" onclick="runDemoBatch()" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 14px; background:#2563EB; color:#fff; border:none; border-radius:4px; cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Run Demo Batch
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="loadOverview(); loadCases(); loadSystemicAlerts(); showToast('Refreshed live ledger metrics');" title="Reload live data">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Refresh
+        </button>
+        <a href="/voice" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:4px; color:var(--text-main); border:1px solid var(--border-strong);">
+          Voice Simulator ↗
         </a>
-        <a href="/report" target="_blank" class="btn btn-sm" style="background:#16A34A; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:6px 12px; border-radius:4px;">
-          Recovery report ↗
+        <a href="/report" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:4px; color:var(--text-main); border:1px solid var(--border-strong);">
+          Executive Report ↗
         </a>
-        <span class="badge-pill" style="background:#F0FDF4; border:1px solid #BBF7D0; color:#15803D;">
-          Seeded holdout simulation
+        <span class="badge-pill" style="background:#F1F5F9; border:1px solid #CBD5E1; color:#475569; font-size:11px; padding:4px 9px;">
+          SIMULATED HOLDOUT BENCHMARK • SYNTHETIC DATA
         </span>
         <button class="btn-icon" id="theme-toggle-btn" title="Toggle colour theme" aria-label="Toggle colour theme">◐</button>
-        <button class="btn btn-outline btn-sm" onclick="loadOverview(); loadCases(); loadSystemicAlerts(); showToast('Refreshed live ledger metrics');">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-          Refresh data
-        </button>
       </div>
     </header>
 
@@ -119,56 +123,42 @@
         <div class="section-header">
           <div>
             <h1 class="section-title">Revenue recovery, safely prioritized</h1>
-            <p class="section-desc">A seeded synthetic evaluation of recovery value, customer safety, and policy decisions.</p>
+            <p class="section-desc">Seeded batch evaluated against 15% stratified holdout control with full policy & safety verification.</p>
           </div>
           <span class="badge-pill" style="background:#EFF6FF; border:1px solid #BFDBFE; color:#1D4ED8;">
             Simulated evaluation result
           </span>
         </div>
 
-        <!-- Headline Metrics Bar -->
+        <!-- Headline Metrics Bar (3 Cards) -->
         <div class="headline-grid">
           <div class="metric-card">
             <div class="metric-label-row">
               <span class="metric-label">Total Revenue at Risk</span>
-              <span class="metric-icon-badge badge-risk">⚠️</span>
             </div>
-            <div class="metric-value num-font" id="metric-total-risk">₹54.2L</div>
+            <div class="metric-value num-font" id="metric-total-risk">₹68.8L</div>
             <div class="metric-caption">
-              Across 320 active cases in current batch
-            </div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-label-row">
-              <span class="metric-label">Simulated Net Recovery</span>
-              <span class="metric-icon-badge badge-rec">₹</span>
-            </div>
-            <div class="metric-value num-font val-emerald" id="metric-total-rec">₹38.7L</div>
-            <div class="metric-caption">
-              Derived from this seeded demonstration run
+              Across <span id="metric-active-count">320</span> active cases in evaluated batch
             </div>
           </div>
 
           <div class="metric-card accent-card">
             <div class="metric-label-row">
               <span class="metric-label">Incremental Lift vs Control</span>
-              <span class="metric-icon-badge badge-lift">📈</span>
             </div>
-            <div class="metric-value num-font val-blue" id="metric-lift">+48.2%</div>
+            <div class="metric-value num-font val-blue" id="metric-lift">+52.2%</div>
             <div class="metric-caption">
-              <span class="lift-pill num-font" id="metric-ci">[95% CI: 43.1% – 53.3%]</span>
+              <span class="lift-pill num-font" id="metric-ci">[95% CI: 43.2% – 61.2%]</span> · <span id="metric-total-rec" style="font-weight:600; color:#10B981;">₹37.5L</span> net recovered
             </div>
           </div>
 
           <div class="metric-card">
             <div class="metric-label-row">
-              <span class="metric-label">Simulated Recovery Cost & ROI</span>
-              <span class="metric-icon-badge badge-roi">⚡</span>
+              <span class="metric-label">Recovery Efficiency & Safety</span>
             </div>
-            <div class="metric-value num-font" id="metric-cost-roi" style="font-size:22px;">₹28,400 → 136x ROI</div>
+            <div class="metric-value num-font" id="metric-cost-roi" style="font-size:26px;">₹7,614 → 492x ROI</div>
             <div class="metric-caption">
-              Discounts capped at 10% margin guardrail
+              Discounts capped at 10% · <span id="metric-suppressed-count">57</span> cases held by safety rules
             </div>
           </div>
         </div>

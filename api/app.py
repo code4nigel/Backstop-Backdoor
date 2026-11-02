@@ -34,7 +34,7 @@ from api.schemas import (
     check_for_injection,
     sanitize_string
 )
-from api.demo_data import store
+from api.run_service import run_service as store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("backstop_api")
@@ -48,6 +48,18 @@ app = Flask(
     static_url_path="/dashboard"
 )
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+
+
+@app.after_request
+def apply_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    origin = request.headers.get("Origin")
+    if origin and any(allowed in origin for allowed in ["localhost", "127.0.0.1"]):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
 
 
 def safe_api_error(message: str, status: int = 500):
@@ -326,9 +338,14 @@ def handle_suppressed_cases() -> Dict[str, Any]:
 
 def handle_audit_log(limit: int = 100) -> List[Dict[str, Any]]:
     all_logs = []
-    for c in store.cases[:25]:
-        for entry in c.get("audit_trail", []):
-            all_logs.append({"case_id": c["case_id"], **entry})
+    cases_list = list(store.case_map.values()) if hasattr(store, "case_map") else getattr(store, "cases", [])
+    for c in cases_list[:25]:
+        if isinstance(c, dict):
+            for entry in c.get("audit_trail", []):
+                all_logs.append({"case_id": c.get("case_id", "CASE_UNKNOWN"), **entry})
+        elif hasattr(c, "metadata"):
+            for entry in c.metadata.get("audit_trail", []):
+                all_logs.append({"case_id": c.case_id, **entry})
     return all_logs
 
 def handle_diagnose(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -336,19 +353,58 @@ def handle_diagnose(payload: Dict[str, Any]) -> Dict[str, Any]:
     if suspicious:
         return {"error": f"Invalid input: {msg}", "code": 400}
 
+    from engine.models import RecoveryCase, LeakType
+    from engine.diagnosis import MultiLeakDiagnosisDispatcher
+    from engine.recovery_value import rank_interventions
+    from engine.policy import PolicyEngine
+
     amount = float(payload.get("amount", 1000.0))
     decline_code = sanitize_string(str(payload.get("decline_code", "INSUFFICIENT_FUNDS")))
     bank = sanitize_string(str(payload.get("bank", "HDFC")))
-    
+    leak_type_str = str(payload.get("leak_type", "failed_payment"))
+
+    mock_case = RecoveryCase(
+        case_id="DIAG_PROBE_001",
+        customer_id="CUST_PROBE",
+        customer_name="Customer Name",
+        phone_masked="+91 98••• ••210",
+        email_masked="c•••••r@example.com",
+        leak_type=LeakType(leak_type_str) if leak_type_str in [l.value for l in LeakType] else LeakType.FAILED_PAYMENT,
+        amount=amount,
+        days_at_risk=1,
+        metadata={"bank": bank, "decline_code": decline_code, "gateway": "Razorpay_Direct", "customer_touches_7d": 0}
+    )
+
+    dispatcher = MultiLeakDiagnosisDispatcher()
+    diag_res = dispatcher.diagnose_case(mock_case)
+
+    ranked = rank_interventions(
+        case=mock_case,
+        diagnosed_cause=diag_res.predicted_cause,
+        confidence=diag_res.confidence,
+        policy_engine=PolicyEngine(quiet_hours_start=24)
+    )
+
+    interventions = []
+    for i, opt in enumerate(ranked):
+        act_name = getattr(opt, "action", getattr(opt, "name", "retry_delayed"))
+        act_str = act_name.value if hasattr(act_name, "value") else str(act_name)
+        ev = float(getattr(opt, "expected_value", amount * 0.7))
+        net = float(getattr(opt, "net_recovery", ev * 0.95))
+        interventions.append({
+            "action": act_str,
+            "expected_value": round(ev, 2),
+            "net_ev": round(net, 2),
+            "is_chosen": (i == 0)
+        })
+
     return {
         "diagnosis": {
-            "predicted_cause": decline_code.lower(),
-            "confidence": 0.88,
-            "evidence": [f"Bank: {bank}", f"Decline Code: {decline_code}"]
+            "predicted_cause": diag_res.predicted_cause,
+            "confidence": round(diag_res.confidence, 2),
+            "evidence": diag_res.evidence
         },
-        "ranked_interventions": [
-            {"action": "retry_delayed", "expected_value": amount * 0.75, "net_ev": amount * 0.72}
-        ]
+        "ranked_interventions": interventions
     }
 
 @app.route("/api/diagnose", methods=["POST"])
@@ -356,6 +412,33 @@ def diagnose_route():
     body = request.get_json(silent=True) or {}
     status, resp = dispatch_request("POST", "/api/diagnose", body=body)
     return jsonify(resp), status
+
+
+@app.route("/api/run_batch", methods=["POST"])
+def run_batch_route():
+    """Live trigger: executes a seeded batch evaluation on demand and returns fresh overview."""
+    body = request.get_json(silent=True) or {}
+    seed = int(body.get("seed", 42))
+    count = int(body.get("count", 320))
+    store.run_batch(seed=seed, count=count)
+    data = store.get_overview_metrics()
+    return jsonify({
+        "status": "success",
+        "message": f"Successfully evaluated fresh batch of {count} cases on seed {seed}.",
+        "overview": data
+    }), 200
+
+
+@app.route("/api/voice/step", methods=["POST"])
+def voice_step_route():
+    """Processes spoken or typed Hinglish utterance through the voice recovery simulator."""
+    body = request.get_json(silent=True) or {}
+    utterance = sanitize_string(str(body.get("utterance", "")))
+    state_dict = body.get("state", {})
+    from voice.simulator import HinglishVoiceSimulator
+    simulator = HinglishVoiceSimulator()
+    result = simulator.step(utterance, state_dict)
+    return jsonify(result), 200
 
 def dispatch_request(method: str, path: str, body: Optional[Dict[str, Any]] = None, query: Optional[Dict[str, str]] = None) -> Tuple[int, Dict[str, Any]]:
     import uuid
@@ -440,11 +523,7 @@ def ledger_summary():
 
 @app.route("/api/audit_log")
 def audit_log():
-    all_logs = []
-    for c in store.cases[:20]:
-        for entry in c.get("audit_trail", []):
-            all_logs.append({"case_id": c["case_id"], **entry})
-    return jsonify(all_logs)
+    return jsonify(handle_audit_log())
 
 
 def run_server(port: int = 5050):

@@ -1,0 +1,146 @@
+{
+  "run_id": "demo_run_20261102",
+  "timestamp": 1793638749.7453253,
+  "total_cases": 320,
+  "total_revenue_at_risk": 6881334.38,
+  "holdout_control_count": 48,
+  "treated_cases_count": 272,
+  "control": {
+    "strategy_name": "Holdout Control Group (Organic)",
+    "name": "Holdout Control Group (Organic)",
+    "total_cases": 48,
+    "recovered_cases": 3,
+    "recovery_rate": 0.0625,
+    "gross_recovered": 21917.79,
+    "channel_cost": 0.0,
+    "outreach_cost": 0.0,
+    "discount_cost": 0.0,
+    "discounts_given": 0.0,
+    "human_review_cost": 0.0,
+    "human_costs": 0.0,
+    "total_cost": 0.0,
+    "net_recovered": 21917.79,
+    "roi": 0.0,
+    "lift_over_control_pct": 0.0,
+    "lift_over_naive_pct": 0.0,
+    "confidence_interval_95": {
+      "p_hat": 0.0625,
+      "lower": 0.0215,
+      "upper": 0.1684,
+      "margin_of_error": 0.0735,
+      "confidence_level": 0.95,
+      "is_statistically_significant": false
+    },
+    "ci_95": [
+      0.0215,
+      0.1684
+    ]
+  },
+  "naive": {
+    "strategy_name": "Naive Baseline (Blind Retry / SMS)",
+    "name": "Naive Baseline (Blind Retry / SMS)",
+    "total_cases": 272,
+    "recovered_cases": 53,
+    "recovery_rate": 0.1949,
+    "gross_recovered": 1237299.78,
+    "channel_cost": 665.0,
+    "outreach_cost": 665.0,
+    "discount_cost": 0.0,
+    "discounts_given": 0.0,
+    "human_review_cost": 0.0,
+    "human_costs": 0.0,
+    "total_cost": 665.0,
+    "net_recovered": 1236634.78,
+    "roi": 1858.6,
+    "lift_over_control_pct": 0.0,
+    "lift_over_naive_pct": 0.0,
+    "confidence_interval_95": {
+      "p_hat": 0.1949,
+      "lower": 0.1522,
+      "upper": 0.246,
+      "margin_of_error": 0.0469,
+      "confidence_level": 0.95,
+      "is_statistically_significant": false
+    },
+    "ci_95": [
+      0.1522,
+      0.246
+    ]
+  },
+  "agent": {
+    "strategy_name": "Backstop AI Recovery Agent",
+    "name": "Backstop AI Recovery Agent",
+    "total_cases": 272,
+    "recovered_cases": 159,
+    "recovery_rate": 0.5846,
+    "gross_recovered": 3770200.44,
+    "channel_cost": 7614.0,
+    "outreach_cost": 7614.0,
+    "discount_cost": 11171.4,
+    "discounts_given": 11171.4,
+    "human_review_cost": 4950.0,
+    "human_costs": 4950.0,
+    "total_cost": 23735.4,
+    "net_recovered": 3746465.04,
+    "roi": 156.84,
+    "lift_over_control_pct": 0.0,
+    "lift_over_naive_pct": 0.0,
+    "confidence_interval_95": {
+      "p_hat": 0.5846,
+      "lower": 0.5252,
+      "upper": 0.6415,
+      "margin_of_error": 0.0581,
+      "confidence_level": 0.95,
+      "is_statistically_significant": false
+    },
+    "ci_95": [
+      0.5252,
+      0.6415
+    ]
+  },
+  "lift_vs_control_pct": 52.3,
+  "lift_vs_naive_pct": 39.0,
+  "confidence_interval_95": {
+    "lower_pct": 43.2,
+    "upper_pct": 61.2,
+    "rate_difference_pct": 52.2,
+    "standard_error": 0.046,
+    "confidence_level": 0.95
+  },
+  "leak_type_breakdown": {
+    "failed_payment": {
+      "total_cases": 93,
+      "at_risk": 984137.5899999999,
+      "recovered_cases": 57,
+      "net_recovered": 616048.8799999998,
+      "top_root_cause": "issuer_down"
+    },
+    "abandoned_checkout": {
+      "total_cases": 67,
+      "at_risk": 524136.92000000004,
+      "recovered_cases": 44,
+      "net_recovered": 336801.32,
+      "top_root_cause": "otp_delay"
+    },
+    "subscription_mandate": {
+      "total_cases": 58,
+      "at_risk": 816137.7000000001,
+      "recovered_cases": 20,
+      "net_recovered": 290275.13,
+      "top_root_cause": "issuer_auth_decline"
+    },
+    "b2b_invoice": {
+      "total_cases": 54,
+      "at_risk": 3547046.7299999995,
+      "recovered_cases": 38,
+      "net_recovered": 2507237.6099999994,
+      "top_root_cause": "forgot_payment"
+    }
+  },
+  "suppressed_count": 9,
+  "suppression_reasons": {
+    "Customer dispute or hardship active - outreach frozen": 9
+  },
+  "systemic_cases_intercepted": 0,
+  "detailed_case_results_count": 320
+}

@@ -385,8 +385,76 @@ body {
 }
 
 /* =====================================================================
-   SECTION 2: SYSTEMIC DEGRADATION ALERT BANNER
+   SECTION 2: SYSTEMIC DEGRADATION ALERT BANNER & INCIDENT STRIP
    ===================================================================== */
+.incident-strip {
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-left: 4px solid #D97706;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+body.dark .incident-strip {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.3);
+  border-left-color: #F59E0B;
+}
+
+.incident-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.incident-badge-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+
+.incident-title-text {
+  font-weight: 600;
+  color: #78350F;
+}
+
+body.dark .incident-title-text {
+  color: #FDE68A;
+}
+
+.incident-meta-text {
+  color: #92400E;
+  font-size: 12px;
+}
+
+body.dark .incident-meta-text {
+  color: #FCD34D;
+}
+
+.incident-action-link {
+  font-weight: 600;
+  color: #B45309;
+  text-decoration: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.incident-action-link:hover {
+  text-decoration: underline;
+}
 .alert-banner {
   background: linear-gradient(90deg, #FEF2F2 0%, #FFFBEB 100%);
   border: 1px solid #FECACA;

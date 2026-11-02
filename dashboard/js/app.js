@@ -28,6 +28,16 @@ const state = {
 };
 
 // Utilities
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 const fmtCurr = (n) => {
   if (n === undefined || n === null) return '₹0';
   return '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -38,6 +48,34 @@ const fmtLakh = (n) => {
   const l = n / 100000;
   return `₹${l.toFixed(1)}L`;
 };
+
+async function runDemoBatch() {
+  const btn = document.getElementById('btn-run-batch');
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span style="display:inline-block; width:10px; height:10px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:4px;"></span> Running...`;
+  }
+  try {
+    const res = await fetch('/api/run_batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seed: 42, count: 320 })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const result = await res.json();
+    showToast(result.message || 'Evaluated demo batch through PolicyEngine', 'success');
+    await Promise.all([loadOverview(), loadCases(), loadSystemicAlerts()]);
+  } catch (err) {
+    console.error('Failed to run demo batch:', err);
+    showToast('Failed to run batch: ' + err.message, 'danger');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+}
 
 const showToast = (message, type = 'success') => {
   const container = document.getElementById('toast-container');
@@ -188,11 +226,26 @@ async function submitHumanAction(caseId, action, notes = '', newDiscount = null)
 
 function renderOverview(data) {
   // Headline Metrics Bar
-  document.getElementById('metric-total-risk').textContent = fmtLakh(data.total_revenue_at_risk);
-  document.getElementById('metric-total-rec').textContent = fmtLakh(data.net_money_recovered);
-  document.getElementById('metric-lift').textContent = `+${data.incremental_lift_pct}%`;
-  document.getElementById('metric-ci').textContent = `[95% CI: ${data.confidence_interval_95.lower_pct}% – ${data.confidence_interval_95.upper_pct}%]`;
-  document.getElementById('metric-cost-roi').textContent = `${fmtCurr(data.total_outreach_cost)} spent → ${data.net_roi_multiplier}x ROI`;
+  const elRisk = document.getElementById('metric-total-risk');
+  if (elRisk) elRisk.textContent = fmtLakh(data.total_revenue_at_risk);
+  
+  const elRec = document.getElementById('metric-total-rec');
+  if (elRec) elRec.textContent = fmtLakh(data.net_money_recovered);
+  
+  const elLift = document.getElementById('metric-lift');
+  if (elLift) elLift.textContent = `+${data.incremental_lift_pct}%`;
+  
+  const elCi = document.getElementById('metric-ci');
+  if (elCi) elCi.textContent = `[95% CI: ${data.confidence_interval_95.lower_pct}% – ${data.confidence_interval_95.upper_pct}%]`;
+  
+  const elRoi = document.getElementById('metric-cost-roi');
+  if (elRoi) elRoi.textContent = `${fmtCurr(data.total_outreach_cost)} spent → ${data.net_roi_multiplier}x ROI`;
+
+  const elActive = document.getElementById('metric-active-count');
+  if (elActive) elActive.textContent = data.active_cases_count;
+
+  const elSupp = document.getElementById('metric-suppressed-count');
+  if (elSupp) elSupp.textContent = data.suppressed_count;
   
   // Update sidebar counter
   const hqCount = document.getElementById('sidebar-hq-counter');
@@ -203,21 +256,21 @@ function renderOverview(data) {
   if (leakContainer && data.leak_breakdown) {
     leakContainer.innerHTML = data.leak_breakdown.map(card => `
       <div class="leak-card ${state.casesFilter.leak_type === card.leak_type ? 'active-filter' : ''}" 
-           onclick="filterByLeakCard('${card.leak_type}')">
+           onclick="filterByLeakCard('${escapeHtml(card.leak_type)}')">
         <div class="leak-card-title-row">
-          <span class="leak-card-title">${card.title}</span>
-          <span class="leak-badge">${card.at_risk_count} cases</span>
+          <span class="leak-card-title">${escapeHtml(card.title)}</span>
+          <span class="leak-badge">${escapeHtml(card.at_risk_count)} cases</span>
         </div>
         <div class="leak-nums-row">
           <span class="leak-at-risk">At Risk: <strong class="num-font">${fmtLakh(card.total_at_risk)}</strong></span>
-          <span class="leak-rate-highlight num-font">${card.recovery_rate_pct}%</span>
+          <span class="leak-rate-highlight num-font">${escapeHtml(card.recovery_rate_pct)}%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" style="width: ${card.recovery_rate_pct}%"></div>
+          <div class="progress-fill" style="width: ${Number(card.recovery_rate_pct)}%"></div>
         </div>
         <div class="leak-footer">
           <span>Top Cause:</span>
-          <span class="leak-cause-tag">${card.top_root_cause}</span>
+          <span class="leak-cause-tag">${escapeHtml(card.top_root_cause)}</span>
         </div>
       </div>
     `).join('');
@@ -238,18 +291,13 @@ function renderSystemicAlerts(data) {
 
   const alert = data.alerts[0];
   container.innerHTML = `
-    <div class="alert-banner">
-      <div class="alert-icon-wrapper">⚠️</div>
-      <div class="alert-content">
-        <div class="alert-heading">${alert.title}</div>
-        <div class="alert-text">${alert.description}</div>
-        <div class="alert-pills">
-          <span class="alert-chip">Route: ${alert.impacted_entity}</span>
-          <span class="alert-chip">Baseline: ${alert.baseline_success_rate_pct}% ➔ Current: ${alert.current_success_rate_pct}% (-${alert.drop_pct}%)</span>
-          <span class="alert-chip chip-success">🛡️ ${alert.spam_prevented_count} Transactions Auto-Held / Zero Customer Spam</span>
-          <span class="alert-chip">Status: ${alert.status}</span>
-        </div>
+    <div class="incident-strip">
+      <div class="incident-strip-left">
+        <span class="incident-badge-pill">${escapeHtml(alert.status || 'ACTIVE_MITIGATION')}</span>
+        <span class="incident-title-text">${escapeHtml(alert.title)}</span>
+        <span class="incident-meta-text">(${escapeHtml(alert.impacted_entity)} · ${escapeHtml(alert.drop_pct)}% drop · ${escapeHtml(alert.spam_prevented_count)} cases held from spam)</span>
       </div>
+      <a href="#section-active-cases" onclick="filterByLeakCard('failed_payment')" class="incident-action-link">View impacted cases →</a>
     </div>
   `;
 }
@@ -272,24 +320,24 @@ function renderCasesTable(data) {
     else if (c.state === 'POLICY_BLOCKED') stateClass = 'badge-state-blocked';
 
     return `
-      <tr onclick="openCaseDetail('${c.case_id}')">
-        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${c.case_id}</td>
+      <tr onclick="openCaseDetail('${escapeHtml(c.case_id)}')">
+        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(c.case_id)}</td>
         <td>
-          <div style="font-weight:600;">${c.customer_name}</div>
-          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${c.phone_masked}</div>
+          <div style="font-weight:600;">${escapeHtml(c.customer_name)}</div>
+          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${escapeHtml(c.phone_masked)}</div>
         </td>
         <td>
-          <span class="leak-badge">${c.leak_type.replace('_', ' ')}</span>
+          <span class="leak-badge">${escapeHtml(c.leak_type.replace('_', ' '))}</span>
           ${c.is_control_group ? '<span class="badge-control-tag">HOLD-OUT</span>' : ''}
           ${c.is_systemic ? '<span class="badge-pill" style="background:#FEE2E2; color:#B91C1C;">SYSTEMIC</span>' : ''}
         </td>
         <td class="num-font" style="font-weight:700;">${fmtCurr(c.amount)}</td>
         <td>
-          <div>${c.predicted_cause}</div>
+          <div>${escapeHtml(c.predicted_cause)}</div>
           <div style="font-size:10.5px; color:var(--text-muted);">${Math.round(c.confidence * 100)}% confidence</div>
         </td>
         <td class="num-font" style="color:#059669; font-weight:600;">+${fmtCurr(c.net_ev)}</td>
-        <td><span class="badge-pill ${stateClass}">${c.state}</span></td>
+        <td><span class="badge-pill ${stateClass}">${escapeHtml(c.state)}</span></td>
       </tr>
     `;
   }).join('');
@@ -314,26 +362,26 @@ function renderHumanQueue(data) {
 
   tbody.innerHTML = data.queue.map(item => `
     <tr>
-      <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${item.case_id}</td>
+      <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(item.case_id)}</td>
       <td>
-        <div style="font-weight:600;">${item.customer_name}</div>
+        <div style="font-weight:600;">${escapeHtml(item.customer_name)}</div>
         <div class="num-font" style="font-size:11.5px; font-weight:700;">${fmtCurr(item.amount)}</div>
       </td>
       <td>
-        <span class="badge-pill ${item.urgency === 'HIGH' ? 'badge-state-blocked' : 'badge-state-disputed'}">${item.urgency}</span>
+        <span class="badge-pill ${item.urgency === 'HIGH' ? 'badge-state-blocked' : 'badge-state-disputed'}">${escapeHtml(item.urgency)}</span>
       </td>
       <td>
-        <div style="font-weight:500;">${item.escalation_reason}</div>
-        <div style="font-size:11px; color:var(--text-muted);">${item.diagnosis_summary}</div>
+        <div style="font-weight:500;">${escapeHtml(item.escalation_reason)}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.diagnosis_summary)}</div>
       </td>
       <td>
-        <span class="leak-badge">${item.recommended_action}</span>
+        <span class="leak-badge">${escapeHtml(item.recommended_action)}</span>
       </td>
       <td>
         <div style="display:flex; gap:6px;">
-          <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'approve')">Approve</button>
-          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'reject')">Reject</button>
-          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); submitHumanAction('${item.case_id}', 'resolve_dispute')">Freeze</button>
+          <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'approve')">Approve</button>
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'reject')">Reject</button>
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); submitHumanAction('${escapeHtml(item.case_id)}', 'resolve_dispute')">Freeze</button>
         </div>
       </td>
     </tr>
@@ -350,7 +398,7 @@ function renderSuppressedCases(data) {
     container.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
         <div>
-          <div style="font-size:16px; font-weight:700; color:#065F46;">🛡️ ${data.trust_statement}</div>
+          <div style="font-size:16px; font-weight:700; color:#065F46;">🛡️ ${escapeHtml(data.trust_statement)}</div>
           <div style="font-size:12px; color:var(--text-muted); margin-top:3px;">
             By enforcing strict TRAI DND checks, negative EV margin filters, and dispute freezes, Backstop guarantees no brand damage.
           </div>
@@ -358,7 +406,7 @@ function renderSuppressedCases(data) {
         <div style="display:flex; gap:10px;">
           ${Object.entries(data.breakdown_by_rule || {}).map(([r, cnt]) => `
             <span class="alert-chip" style="background:#F1F5F9; border-color:#CBD5E1; color:#334155;">
-              ${r}: <strong>${cnt}</strong>
+              ${escapeHtml(r)}: <strong>${escapeHtml(cnt)}</strong>
             </span>
           `).join('')}
         </div>
@@ -368,21 +416,21 @@ function renderSuppressedCases(data) {
 
   if (tbody && data.suppressed_cases) {
     tbody.innerHTML = data.suppressed_cases.map(item => `
-      <tr onclick="openCaseDetail('${item.case_id}')">
-        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${item.case_id}</td>
+      <tr onclick="openCaseDetail('${escapeHtml(item.case_id)}')">
+        <td class="num-font" style="font-weight:600; color:var(--primary-accent);">${escapeHtml(item.case_id)}</td>
         <td>
-          <div style="font-weight:600;">${item.customer_name}</div>
-          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${item.phone_masked}</div>
+          <div style="font-weight:600;">${escapeHtml(item.customer_name)}</div>
+          <div class="num-font" style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.phone_masked)}</div>
         </td>
-        <td><span class="leak-badge">${item.leak_type.replace('_', ' ')}</span></td>
+        <td><span class="leak-badge">${escapeHtml(item.leak_type.replace('_', ' '))}</span></td>
         <td class="num-font" style="font-weight:700;">${fmtCurr(item.amount)}</td>
         <td>
-          <span class="badge-pill badge-state-blocked">${item.block_reason}</span>
-          <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Fired: ${item.stopping_rule_fired}</div>
+          <span class="badge-pill badge-state-blocked">${escapeHtml(item.block_reason)}</span>
+          <div style="font-size:10.5px; color:var(--text-muted); margin-top:2px;">Fired: ${escapeHtml(item.stopping_rule_fired)}</div>
         </td>
         <td>
-          <div style="color:#059669; font-weight:600;">₹${item.wasted_spend_saved} saved</div>
-          <div style="font-size:11px; color:var(--text-muted);">${item.customer_goodwill_preserved}</div>
+          <div style="color:#059669; font-weight:600;">₹${escapeHtml(item.wasted_spend_saved)} saved</div>
+          <div style="font-size:11px; color:var(--text-muted);">${escapeHtml(item.customer_goodwill_preserved)}</div>
         </td>
       </tr>
     `).join('');
@@ -422,32 +470,32 @@ function renderCaseModal(c) {
   // Step 1: Detect
   document.getElementById('step1-content').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px;">
-      <div><span style="color:var(--text-muted);">Leak Type:</span> <strong class="leak-badge">${c.leak_type}</strong></div>
-      <div><span style="color:var(--text-muted);">Timestamp:</span> <strong class="num-font">${c.created_at_str}</strong></div>
-      <div><span style="color:var(--text-muted);">Days at Risk:</span> <strong>${c.days_at_risk} days</strong></div>
-      <div><span style="color:var(--text-muted);">Masked Phone:</span> <strong class="num-font">${c.phone_masked}</strong></div>
+      <div><span style="color:var(--text-muted);">Leak Type:</span> <strong class="leak-badge">${escapeHtml(c.leak_type)}</strong></div>
+      <div><span style="color:var(--text-muted);">Timestamp:</span> <strong class="num-font">${escapeHtml(c.created_at_str)}</strong></div>
+      <div><span style="color:var(--text-muted);">Days at Risk:</span> <strong>${escapeHtml(c.days_at_risk)} days</strong></div>
+      <div><span style="color:var(--text-muted);">Masked Phone:</span> <strong class="num-font">${escapeHtml(c.phone_masked)}</strong></div>
     </div>
     <div style="margin-top:10px; font-size:11.5px; background:var(--bg-surface-elevated); padding:8px 12px; border-radius:var(--radius-sm);">
-      Metadata: ${Object.entries(c.metadata || {}).map(([k, v]) => `<code>${k}: ${v}</code>`).join(' | ')}
+      Metadata: ${Object.entries(c.metadata || {}).map(([k, v]) => `<code>${escapeHtml(k)}: ${escapeHtml(v)}</code>`).join(' | ')}
     </div>
   `;
 
   // Step 2: Diagnose
-  const diag = c.diagnosis;
+  const diag = c.diagnosis || {};
   document.getElementById('step2-content').innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <div>
         <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted);">Predicted Root Cause</span>
-        <div style="font-size:17px; font-weight:700; color:var(--primary-accent);">${diag.predicted_cause}</div>
+        <div style="font-size:17px; font-weight:700; color:var(--primary-accent);">${escapeHtml(diag.predicted_cause)}</div>
       </div>
       <div style="text-align:right;">
         <span style="font-size:11px; text-transform:uppercase; color:var(--text-muted);">Model Confidence</span>
-        <div class="num-font" style="font-size:18px; font-weight:700; color:#059669;">${Math.round(diag.confidence * 100)}%</div>
+        <div class="num-font" style="font-size:18px; font-weight:700; color:#059669;">${Math.round((diag.confidence || 0) * 100)}%</div>
       </div>
     </div>
     <div style="font-size:12px; margin-bottom:6px; font-weight:600; color:var(--text-muted);">Extracted Diagnostic Evidence:</div>
     <ul style="padding-left:18px; font-size:12px; color:var(--text-main); line-height:1.6;">
-      ${(diag.evidence || []).map(e => `<li>${e}</li>`).join('')}
+      ${(diag.evidence || []).map(e => `<li>${escapeHtml(e)}</li>`).join('')}
     </ul>
   `;
 
@@ -472,13 +520,13 @@ function renderCaseModal(c) {
       <tbody>
         ${rankings.map(r => `
           <tr class="${r.is_chosen ? 'row-chosen' : ''}">
-            <td><strong>${r.action}</strong> ${r.is_chosen ? '★ WINNER' : ''}</td>
-            <td>${Math.round(r.p_recovery * 100)}%</td>
+            <td><strong>${escapeHtml(r.action)}</strong> ${r.is_chosen ? '★ WINNER' : ''}</td>
+            <td>${Math.round((r.p_recovery || 0) * 100)}%</td>
             <td>${fmtCurr(r.expected_value)}</td>
-            <td>₹${r.channel_cost}</td>
-            <td>₹${r.expected_discount}</td>
+            <td>₹${escapeHtml(r.channel_cost)}</td>
+            <td>₹${escapeHtml(r.expected_discount)}</td>
             <td style="color:${r.net_ev > 0 ? '#059669' : '#DC2626'}; font-weight:700;">+${fmtCurr(r.net_ev)}</td>
-            <td>${r.rationale}</td>
+            <td>${escapeHtml(r.rationale)}</td>
           </tr>
         `).join('')}
       </tbody>
@@ -486,28 +534,28 @@ function renderCaseModal(c) {
   `;
 
   // Step 4: Policy Check
-  const pol = c.policy_check;
+  const pol = c.policy_check || {};
   document.getElementById('step4-content').innerHTML = `
     <div class="policy-gate-grid">
       <div class="gate-box">
         <div class="gate-name">TRAI National DND Check</div>
-        <div class="gate-status ${pol.dnd_status.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.dnd_status}</div>
+        <div class="gate-status ${pol.dnd_status && pol.dnd_status.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.dnd_status || 'PASS')}</div>
       </div>
       <div class="gate-box">
         <div class="gate-name">RBI Quiet Hours (8PM-8AM)</div>
-        <div class="gate-status ${pol.quiet_hours.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.quiet_hours}</div>
+        <div class="gate-status ${pol.quiet_hours && pol.quiet_hours.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.quiet_hours || 'PASS')}</div>
       </div>
       <div class="gate-box">
         <div class="gate-name">Margin Discount Guardrail</div>
-        <div class="gate-status ${pol.margin_guardrail.includes('PASS') ? 'status-pass' : 'status-fail'}">${pol.margin_guardrail}</div>
+        <div class="gate-status ${pol.margin_guardrail && pol.margin_guardrail.includes('PASS') ? 'status-pass' : 'status-fail'}">${escapeHtml(pol.margin_guardrail || 'PASS')}</div>
       </div>
       <div class="gate-box">
         <div class="gate-name">Anti-Spam Frequency Cap</div>
-        <div class="gate-status status-pass">${pol.frequency_cap}</div>
+        <div class="gate-status status-pass">${escapeHtml(pol.frequency_cap || 'PASS')}</div>
       </div>
       <div class="gate-box">
         <div class="gate-name">Dispute Freeze Protection</div>
-        <div class="gate-status ${pol.dispute_hold.includes('PASS') ? 'status-pass' : 'status-held'}">${pol.dispute_hold}</div>
+        <div class="gate-status ${pol.dispute_hold && pol.dispute_hold.includes('PASS') ? 'status-pass' : 'status-held'}">${escapeHtml(pol.dispute_hold || 'PASS')}</div>
       </div>
       <div class="gate-box">
         <div class="gate-name">Human Escalation Floor</div>
@@ -517,16 +565,16 @@ function renderCaseModal(c) {
   `;
 
   // Step 5: Execute
-  const ex = c.execution;
+  const ex = c.execution || {};
   document.getElementById('step5-content').innerHTML = `
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; font-size:12px;">
-      <div><span style="color:var(--text-muted);">Channel:</span> <strong>${ex.channel}</strong></div>
-      <div><span style="color:var(--text-muted);">Outbox Status:</span> <strong class="badge-pill badge-state-executing">${ex.outbox_status}</strong></div>
-      <div><span style="color:var(--text-muted);">Receipt ID:</span> <strong class="num-font">${ex.delivery_receipt_id || 'N/A'}</strong></div>
-      <div><span style="color:var(--text-muted);">Dispatch Time:</span> <strong class="num-font">${ex.timestamp}</strong></div>
+      <div><span style="color:var(--text-muted);">Channel:</span> <strong>${escapeHtml(ex.channel)}</strong></div>
+      <div><span style="color:var(--text-muted);">Outbox Status:</span> <strong class="badge-pill badge-state-executing">${escapeHtml(ex.outbox_status)}</strong></div>
+      <div><span style="color:var(--text-muted);">Receipt ID:</span> <strong class="num-font">${escapeHtml(ex.delivery_receipt_id || 'N/A')}</strong></div>
+      <div><span style="color:var(--text-muted);">Dispatch Time:</span> <strong class="num-font">${escapeHtml(ex.timestamp)}</strong></div>
     </div>
     <div style="margin-top:8px; font-size:11.5px; color:var(--text-muted);">
-      Idempotency Key: <code class="num-font">${ex.idempotency_key}</code>
+      Idempotency Key: <code class="num-font">${escapeHtml(ex.idempotency_key)}</code>
     </div>
   `;
 
@@ -535,10 +583,10 @@ function renderCaseModal(c) {
   document.getElementById('modal-audit-log').innerHTML = audit.map(a => `
     <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-subtle); font-size:12px;">
       <div>
-        <strong>${a.action_or_rule}</strong> (${a.from_state} ➔ ${a.to_state})
-        <div style="color:var(--text-muted); font-size:11px;">${a.notes} [Actor: ${a.actor}]</div>
+        <strong>${escapeHtml(a.action_or_rule)}</strong> (${escapeHtml(a.from_state)} ➔ ${escapeHtml(a.to_state)})
+        <div style="color:var(--text-muted); font-size:11px;">${escapeHtml(a.notes)} [Actor: ${escapeHtml(a.actor)}]</div>
       </div>
-      <div class="num-font" style="color:var(--text-muted); font-size:11px;">${a.timestamp}</div>
+      <div class="num-font" style="color:var(--text-muted); font-size:11px;">${escapeHtml(a.timestamp)}</div>
     </div>
   `).join('');
 
@@ -548,8 +596,8 @@ function renderCaseModal(c) {
     if (c.requires_human_approval) {
       actionContainer.innerHTML = `
         <button class="btn btn-outline" onclick="closeCaseModal()">Close</button>
-        <button class="btn btn-danger" onclick="submitHumanAction('${c.case_id}', 'reject')">Reject & Suppress</button>
-        <button class="btn btn-success" onclick="submitHumanAction('${c.case_id}', 'approve')">Approve Action</button>
+        <button class="btn btn-danger" onclick="submitHumanAction('${escapeHtml(c.case_id)}', 'reject')">Reject & Suppress</button>
+        <button class="btn btn-success" onclick="submitHumanAction('${escapeHtml(c.case_id)}', 'approve')">Approve Action</button>
       `;
     } else {
       actionContainer.innerHTML = `
